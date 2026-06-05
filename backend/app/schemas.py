@@ -1,0 +1,83 @@
+from datetime import datetime
+
+from pydantic import BaseModel, ConfigDict
+from pydantic import Field
+
+
+class ActivitySummary(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    filename: str
+    sport: str | None = None
+    sub_sport: str | None = None
+    started_at: datetime | None = None
+    total_elapsed_time: float | None = None
+    total_timer_time: float | None = None
+    total_distance: float | None = None
+    avg_speed: float | None = None
+    max_speed: float | None = None
+    avg_heart_rate: int | None = None
+    max_heart_rate: int | None = None
+    avg_cadence: int | None = None
+    max_cadence: int | None = None
+    avg_power: int | None = None
+    max_power: int | None = None
+    normalized_power: int | None = None
+    threshold_power: int | None = None
+    intensity_factor: float | None = None
+    efficiency_factor: float | None = None
+    training_stress_score: float | None = None
+    avg_ground_contact_time: float | None = None
+    ascent: float | None = None
+    descent: float | None = None
+    created_at: datetime
+    lap_count: int = 0
+    record_count: int = 0
+
+
+class ActivityDetail(ActivitySummary):
+    raw_summary: str | None = None
+
+
+class ThresholdPowerUpdate(BaseModel):
+    threshold_power: int = Field(ge=1, le=2000)
+
+
+class LapRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    lap_index: int
+    started_at: datetime | None = None
+    total_elapsed_time: float | None = None
+    total_timer_time: float | None = None
+    total_distance: float | None = None
+    avg_speed: float | None = None
+    max_speed: float | None = None
+    avg_heart_rate: int | None = None
+    max_heart_rate: int | None = None
+    avg_cadence: int | None = None
+    max_cadence: int | None = None
+    avg_power: int | None = None
+    max_power: int | None = None
+    normalized_power: int | None = None
+    avg_ground_contact_time: float | None = None
+
+
+class RecordRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    record_index: int
+    timestamp: datetime | None = None
+    distance: float | None = None
+    speed: float | None = None
+    heart_rate: int | None = None
+    cadence: int | None = None
+    power: int | None = None
+    ground_contact_time: float | None = None
+    altitude: float | None = None
+    latitude: float | None = None
+    longitude: float | None = None
+    temperature: int | None = None
