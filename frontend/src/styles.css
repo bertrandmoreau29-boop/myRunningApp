@@ -332,6 +332,12 @@ h1 {
   gap: 8px;
 }
 
+.activities-content {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: 220px minmax(0, 1fr);
+}
+
 .summary-strip {
   border-bottom: 1px solid #e5ece7;
   border-top: 1px solid #e5ece7;
@@ -536,6 +542,15 @@ tbody tr.selected {
   padding-bottom: 12px;
 }
 
+.table-side-config {
+  align-content: start;
+  background: #f8faf8;
+  border: 1px solid #e5ece7;
+  border-radius: 8px;
+  margin: 0;
+  padding: 12px;
+}
+
 .comment-box {
   border: 1px solid #cbd7ce;
   border-radius: 8px;
@@ -656,6 +671,10 @@ tbody tr.selected {
 
 @media (max-width: 1050px) {
   .workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .activities-content {
     grid-template-columns: 1fr;
   }
 

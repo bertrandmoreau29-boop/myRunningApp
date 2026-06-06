@@ -500,103 +500,135 @@ function DashboardContent({
           ) : activities.length === 0 ? (
             <p className="empty-state">Aucune activite importee.</p>
           ) : (
-            <div className="table-scroll">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Distance</th>
-                    <th>Duree</th>
-                    <th>Type de seance</th>
-                    <th>Lieu/parcours</th>
-                    <th>Allure</th>
-                    <th>FC moy.</th>
-                    <th>Puissance</th>
-                    <th>Puiss. norm.</th>
-                    <th>FTP</th>
-                    <th>EF</th>
-                    <th>IF</th>
-                    <th>TSS</th>
-                    <th>D+</th>
-                    <th>D-</th>
-                    <th>Cadence</th>
-                    <th>Contact sol</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sortedActivities.map((activity) => (
-                    <tr
-                      key={activity.id}
-                      className={activity.id === selectedId ? "selected" : ""}
-                      onClick={() => setSelectedId(activity.id)}
-                    >
-                      <td>{formatDate(activity.started_at)}</td>
-                      <td>
-                        <input
-                          className="distance-input"
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          defaultValue={activity.total_distance == null ? "" : (activity.total_distance / 1000).toFixed(2)}
-                          onClick={(event) => event.stopPropagation()}
-                          onBlur={(event) => {
-                            const distanceKm = Number.parseFloat(event.currentTarget.value);
-                            if (Number.isFinite(distanceKm)) {
-                              void handleActivityUpdate(activity, { total_distance: distanceKm * 1000 });
-                            }
-                          }}
-                        />
-                      </td>
-                      <td>{formatDuration(activity.total_timer_time)}</td>
-                      <td>
-                        <EditableSelect
-                          value={activity.session_type}
-                          options={appConfig?.session_types ?? []}
-                          onAdd={() => void onAddOption("session_type")}
-                          onChange={(value) => void handleActivityUpdate(activity, { session_type: value })}
-                        />
-                      </td>
-                      <td>
-                        <EditableSelect
-                          value={activity.route_location}
-                          options={appConfig?.route_locations ?? []}
-                          onAdd={() => void onAddOption("route_location")}
-                          onChange={(value) => void handleActivityUpdate(activity, { route_location: value })}
-                        />
-                      </td>
-                      <td>{formatPace(activity.avg_speed)}</td>
-                      <td>{formatNumber(activity.avg_heart_rate, " bpm")}</td>
-                      <td>{formatNumber(activity.avg_power, " W")}</td>
-                      <td>{formatNumber(activity.normalized_power, " W")}</td>
-                      <td>
-                        <input
-                          className="ftp-input"
-                          type="number"
-                          min="1"
-                          max="2000"
-                          defaultValue={activity.threshold_power ?? ""}
-                          disabled={savingThresholdId === activity.id}
-                          onBlur={(event) => void handleThresholdBlur(activity, event.currentTarget.value)}
-                          onClick={(event) => event.stopPropagation()}
-                          onKeyDown={(event) => {
-                            if (event.key === "Enter") {
-                              event.currentTarget.blur();
-                            }
-                          }}
-                          title="FTP en watts"
-                        />
-                      </td>
-                      <td>{formatDecimal(activity.efficiency_factor, 2)}</td>
-                      <td>{formatDecimal(activity.intensity_factor, 2)}</td>
-                      <td>{formatDecimal(activity.training_stress_score, 1)}</td>
-                      <td>{formatNumber(activity.ascent, " m")}</td>
-                      <td>{formatNumber(activity.descent, " m")}</td>
-                      <td>{formatCadence(activity.avg_cadence)}</td>
-                      <td>{formatMilliseconds(activity.avg_ground_contact_time)}</td>
+            <div className="activities-content">
+              <div className="side-config table-side-config">
+                <label>
+                  <span>FTP par defaut</span>
+                  <input
+                    type="number"
+                    min="1"
+                    max="2000"
+                    defaultValue={appConfig?.default_ftp ?? ""}
+                    onBlur={(event) => {
+                      const value = Number.parseInt(event.currentTarget.value, 10);
+                      if (Number.isFinite(value)) void onUpdateConfig({ default_ftp: value });
+                    }}
+                  />
+                </label>
+                <label>
+                  <span>Chaussures par defaut</span>
+                  <select
+                    value={appConfig?.default_shoe_type ?? ""}
+                    onChange={(event) => void onUpdateConfig({ default_shoe_type: event.currentTarget.value })}
+                  >
+                    <option value="">-</option>
+                    {(appConfig?.shoe_types ?? []).map((shoe) => (
+                      <option key={shoe} value={shoe}>
+                        {shoe}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              <div className="table-scroll">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Distance</th>
+                      <th>Duree</th>
+                      <th>Type de seance</th>
+                      <th>Lieu/parcours</th>
+                      <th>Allure</th>
+                      <th>FC moy.</th>
+                      <th>Puissance</th>
+                      <th>Puiss. norm.</th>
+                      <th>FTP</th>
+                      <th>EF</th>
+                      <th>IF</th>
+                      <th>TSS</th>
+                      <th>D+</th>
+                      <th>D-</th>
+                      <th>Cadence</th>
+                      <th>Contact sol</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {sortedActivities.map((activity) => (
+                      <tr
+                        key={activity.id}
+                        className={activity.id === selectedId ? "selected" : ""}
+                        onClick={() => setSelectedId(activity.id)}
+                      >
+                        <td>{formatDate(activity.started_at)}</td>
+                        <td>
+                          <input
+                            className="distance-input"
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            defaultValue={activity.total_distance == null ? "" : (activity.total_distance / 1000).toFixed(2)}
+                            onClick={(event) => event.stopPropagation()}
+                            onBlur={(event) => {
+                              const distanceKm = Number.parseFloat(event.currentTarget.value);
+                              if (Number.isFinite(distanceKm)) {
+                                void handleActivityUpdate(activity, { total_distance: distanceKm * 1000 });
+                              }
+                            }}
+                          />
+                        </td>
+                        <td>{formatDuration(activity.total_timer_time)}</td>
+                        <td>
+                          <EditableSelect
+                            value={activity.session_type}
+                            options={appConfig?.session_types ?? []}
+                            onAdd={() => void onAddOption("session_type")}
+                            onChange={(value) => void handleActivityUpdate(activity, { session_type: value })}
+                          />
+                        </td>
+                        <td>
+                          <EditableSelect
+                            value={activity.route_location}
+                            options={appConfig?.route_locations ?? []}
+                            onAdd={() => void onAddOption("route_location")}
+                            onChange={(value) => void handleActivityUpdate(activity, { route_location: value })}
+                          />
+                        </td>
+                        <td>{formatPace(activity.avg_speed)}</td>
+                        <td>{formatNumber(activity.avg_heart_rate, " bpm")}</td>
+                        <td>{formatNumber(activity.avg_power, " W")}</td>
+                        <td>{formatNumber(activity.normalized_power, " W")}</td>
+                        <td>
+                          <input
+                            className="ftp-input"
+                            type="number"
+                            min="1"
+                            max="2000"
+                            defaultValue={activity.threshold_power ?? ""}
+                            disabled={savingThresholdId === activity.id}
+                            onBlur={(event) => void handleThresholdBlur(activity, event.currentTarget.value)}
+                            onClick={(event) => event.stopPropagation()}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter") {
+                                event.currentTarget.blur();
+                              }
+                            }}
+                            title="FTP en watts"
+                          />
+                        </td>
+                        <td>{formatDecimal(activity.efficiency_factor, 2)}</td>
+                        <td>{formatDecimal(activity.intensity_factor, 2)}</td>
+                        <td>{formatDecimal(activity.training_stress_score, 1)}</td>
+                        <td>{formatNumber(activity.ascent, " m")}</td>
+                        <td>{formatNumber(activity.descent, " m")}</td>
+                        <td>{formatCadence(activity.avg_cadence)}</td>
+                        <td>{formatMilliseconds(activity.avg_ground_contact_time)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </div>
@@ -605,36 +637,6 @@ function DashboardContent({
           <div className="panel-header">
             <h2>Commentaire</h2>
             <span>{detail.activity ? formatDate(detail.activity.started_at) : "-"}</span>
-          </div>
-
-          <div className="side-config">
-            <label>
-              <span>FTP par defaut</span>
-              <input
-                type="number"
-                min="1"
-                max="2000"
-                defaultValue={appConfig?.default_ftp ?? ""}
-                onBlur={(event) => {
-                  const value = Number.parseInt(event.currentTarget.value, 10);
-                  if (Number.isFinite(value)) void onUpdateConfig({ default_ftp: value });
-                }}
-              />
-            </label>
-            <label>
-              <span>Chaussures par defaut</span>
-              <select
-                value={appConfig?.default_shoe_type ?? ""}
-                onChange={(event) => void onUpdateConfig({ default_shoe_type: event.currentTarget.value })}
-              >
-                <option value="">-</option>
-                {(appConfig?.shoe_types ?? []).map((shoe) => (
-                  <option key={shoe} value={shoe}>
-                    {shoe}
-                  </option>
-                ))}
-              </select>
-            </label>
           </div>
 
           <textarea
