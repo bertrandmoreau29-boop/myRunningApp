@@ -11,6 +11,10 @@ class ActivitySummary(BaseModel):
     filename: str
     sport: str | None = None
     sub_sport: str | None = None
+    session_type: str | None = None
+    route_location: str | None = None
+    shoe_type: str | None = None
+    comment: str | None = None
     started_at: datetime | None = None
     total_elapsed_time: float | None = None
     total_timer_time: float | None = None
@@ -42,6 +46,41 @@ class ActivityDetail(ActivitySummary):
 
 class ThresholdPowerUpdate(BaseModel):
     threshold_power: int = Field(ge=1, le=2000)
+
+
+class ActivityUpdate(BaseModel):
+    session_type: str | None = None
+    route_location: str | None = None
+    shoe_type: str | None = None
+    comment: str | None = None
+    total_distance: float | None = Field(default=None, ge=0)
+    threshold_power: int | None = Field(default=None, ge=1, le=2000)
+
+
+class OptionCreate(BaseModel):
+    category: str
+    value: str = Field(min_length=1, max_length=200)
+
+
+class OptionRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    category: str
+    value: str
+
+
+class AppConfigRead(BaseModel):
+    default_ftp: int
+    default_shoe_type: str | None = None
+    session_types: list[str]
+    route_locations: list[str]
+    shoe_types: list[str]
+
+
+class AppConfigUpdate(BaseModel):
+    default_ftp: int | None = Field(default=None, ge=1, le=2000)
+    default_shoe_type: str | None = None
 
 
 class LapRead(BaseModel):

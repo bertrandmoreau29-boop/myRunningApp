@@ -8,8 +8,8 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.fit_parser import _intensity_factor, _training_stress_score, parse_fit_file
-from app.models import Activity, Lap, Record
-from app.schemas import ActivityDetail, ActivitySummary, LapRead, RecordRead, ThresholdPowerUpdate
+from app.models import Activity, AppSetting, Lap, Record
+from app.schemas import ActivityDetail, ActivitySummary, ActivityUpdate, LapRead, RecordRead, ThresholdPowerUpdate
 
 
 router = APIRouter(prefix="/activities", tags=["activities"])
@@ -35,6 +35,26 @@ def _recalculate_threshold_metrics(activity: Activity) -> None:
         activity.normalized_power,
         activity.threshold_power,
     )
+
+
+def _recalculate_distance_metrics(activity: Activity) -> None:
+    if activity.total_distance is not None and activity.total_timer_time and activity.total_timer_time > 0:
+        activity.avg_speed = activity.total_distance / activity.total_timer_time
+
+
+def _default_threshold_power(db: Session) -> int | None:
+    setting = db.get(AppSetting, "default_ftp")
+    if setting is None:
+        return None
+    try:
+        return int(setting.value)
+    except ValueError:
+        return None
+
+
+def _default_shoe_type(db: Session) -> str | None:
+    setting = db.get(AppSetting, "default_shoe_type")
+    return setting.value if setting and setting.value else None
 
 
 def _previous_threshold_power(db: Session, started_at: object) -> int | None:
@@ -63,19 +83,20 @@ def _create_activity_from_fit(path: Path, original_filename: str, db: Session) -
         path.unlink(missing_ok=True)
         raise HTTPException(status_code=400, detail=f"Fichier FIT illisible ({original_filename}): {exc}") from exc
 
-    previous_threshold = _previous_threshold_power(db, parsed["summary"].get("started_at"))
-    if previous_threshold is not None:
-        parsed["summary"]["threshold_power"] = previous_threshold
+    default_threshold = _default_threshold_power(db) or _previous_threshold_power(db, parsed["summary"].get("started_at"))
+    if default_threshold is not None:
+        parsed["summary"]["threshold_power"] = default_threshold
         parsed["summary"]["intensity_factor"] = _intensity_factor(
             parsed["summary"].get("normalized_power"),
-            previous_threshold,
+            default_threshold,
         )
         parsed["summary"]["training_stress_score"] = _training_stress_score(
             parsed["summary"].get("total_timer_time"),
             parsed["summary"].get("normalized_power"),
-            previous_threshold,
+            default_threshold,
         )
 
+    parsed["summary"]["shoe_type"] = _default_shoe_type(db)
     activity = Activity(filename=original_filename, **parsed["summary"])
     db.add(activity)
     db.flush()
@@ -174,6 +195,33 @@ def update_threshold_power(
 
     activity.threshold_power = payload.threshold_power
     _recalculate_threshold_metrics(activity)
+    db.commit()
+    db.refresh(activity)
+
+    lap_count = db.scalar(select(func.count()).select_from(Lap).where(Lap.activity_id == activity_id)) or 0
+    record_count = db.scalar(select(func.count()).select_from(Record).where(Record.activity_id == activity_id)) or 0
+    return _detail(activity, lap_count, record_count)
+
+
+@router.patch("/{activity_id}", response_model=ActivityDetail)
+def update_activity(activity_id: int, payload: ActivityUpdate, db: Session = Depends(get_db)) -> ActivityDetail:
+    activity = db.get(Activity, activity_id)
+    if activity is None:
+        raise HTTPException(status_code=404, detail="Activite introuvable")
+
+    for field in ("session_type", "route_location", "shoe_type", "comment"):
+        value = getattr(payload, field)
+        if value is not None:
+            setattr(activity, field, value.strip() if isinstance(value, str) else value)
+
+    if payload.total_distance is not None:
+        activity.total_distance = payload.total_distance
+        _recalculate_distance_metrics(activity)
+
+    if payload.threshold_power is not None:
+        activity.threshold_power = payload.threshold_power
+        _recalculate_threshold_metrics(activity)
+
     db.commit()
     db.refresh(activity)
 

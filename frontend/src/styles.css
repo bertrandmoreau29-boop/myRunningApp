@@ -412,6 +412,43 @@ td {
   width: 76px;
 }
 
+.distance-input {
+  background: #ffffff;
+  border: 1px solid #cbd7ce;
+  border-radius: 6px;
+  color: #17201b;
+  height: 30px;
+  padding: 0 8px;
+  width: 86px;
+}
+
+.editable-select {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+}
+
+.editable-select select {
+  background: #ffffff;
+  border: 1px solid #cbd7ce;
+  border-radius: 6px;
+  color: #17201b;
+  height: 30px;
+  max-width: 190px;
+  min-width: 150px;
+}
+
+.editable-select button,
+.add-button {
+  background: #226b45;
+  border: 1px solid #226b45;
+  border-radius: 6px;
+  color: #ffffff;
+  cursor: pointer;
+  min-height: 30px;
+  padding: 0 10px;
+}
+
 .ftp-input:focus {
   border-color: #226b45;
   outline: 2px solid #d8eadf;
@@ -448,6 +485,80 @@ tbody tr.selected {
 .chart-page {
   margin: 0 auto;
   max-width: 1500px;
+}
+
+.config-page {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(320px, 0.8fr) repeat(3, minmax(220px, 1fr));
+  margin: 0 auto;
+  max-width: 1500px;
+}
+
+.config-panel {
+  min-height: 180px;
+}
+
+.config-grid,
+.side-config {
+  display: grid;
+  gap: 12px;
+}
+
+.config-grid label,
+.side-config label {
+  display: grid;
+  gap: 6px;
+}
+
+.config-grid span,
+.side-config span {
+  color: #66736b;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.config-grid input,
+.config-grid select,
+.side-config input,
+.side-config select {
+  background: #ffffff;
+  border: 1px solid #cbd7ce;
+  border-radius: 6px;
+  color: #17201b;
+  min-height: 34px;
+  padding: 0 8px;
+}
+
+.side-config {
+  border-bottom: 1px solid #e5ece7;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+}
+
+.comment-box {
+  border: 1px solid #cbd7ce;
+  border-radius: 8px;
+  color: #17201b;
+  min-height: 94px;
+  padding: 10px;
+  resize: vertical;
+  width: 100%;
+}
+
+.option-list {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.option-list li {
+  background: #f8faf8;
+  border: 1px solid #e5ece7;
+  border-radius: 6px;
+  padding: 8px 10px;
 }
 
 .chart-panel {
@@ -548,6 +659,10 @@ tbody tr.selected {
     grid-template-columns: 1fr;
   }
 
+  .config-page {
+    grid-template-columns: 1fr 1fr;
+  }
+
   .stats-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
@@ -607,5 +722,9 @@ tbody tr.selected {
 
   .chart-header {
     display: grid;
+  }
+
+  .config-page {
+    grid-template-columns: 1fr;
   }
 }

@@ -36,6 +36,10 @@ def init_db() -> None:
 def _ensure_sqlite_columns() -> None:
     additions = {
         "activities": {
+            "session_type": "VARCHAR(160)",
+            "route_location": "VARCHAR(160)",
+            "shoe_type": "VARCHAR(160)",
+            "comment": "TEXT",
             "avg_power": "INTEGER",
             "max_power": "INTEGER",
             "normalized_power": "INTEGER",
@@ -66,3 +70,45 @@ def _ensure_sqlite_columns() -> None:
             for column_name, column_type in columns.items():
                 if column_name not in existing:
                     connection.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {column_type}"))
+        _seed_defaults(connection)
+
+
+def _seed_defaults(connection) -> None:
+    settings = {
+        "default_ftp": "221",
+        "default_shoe_type": "New Balance 860 2026 bleues",
+    }
+    options = {
+        "session_type": [
+            "Endurance+ lignes droites",
+            "Endurance",
+            "Sortie allure Marathon",
+            "Sortie allure seuil",
+            "Tapis endurance",
+        ],
+        "route_location": [
+            "Brest domicile",
+            "Ifremer Plouzane",
+            "Marregues-Gouesnou 10km",
+        ],
+        "shoe_type": [
+            "New Balance 860 2026 bleues",
+        ],
+    }
+
+    for key, value in settings.items():
+        exists = connection.execute(text("SELECT 1 FROM app_settings WHERE key = :key"), {"key": key}).fetchone()
+        if not exists:
+            connection.execute(text("INSERT INTO app_settings(key, value) VALUES (:key, :value)"), {"key": key, "value": value})
+
+    for category, values in options.items():
+        for value in values:
+            exists = connection.execute(
+                text("SELECT 1 FROM option_values WHERE category = :category AND value = :value"),
+                {"category": category, "value": value},
+            ).fetchone()
+            if not exists:
+                connection.execute(
+                    text("INSERT INTO option_values(category, value) VALUES (:category, :value)"),
+                    {"category": category, "value": value},
+                )

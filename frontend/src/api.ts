@@ -5,6 +5,10 @@ export type Activity = {
   filename: string;
   sport: string | null;
   sub_sport: string | null;
+  session_type: string | null;
+  route_location: string | null;
+  shoe_type: string | null;
+  comment: string | null;
   started_at: string | null;
   total_elapsed_time: number | null;
   total_timer_time: number | null;
@@ -89,6 +93,23 @@ export type WeeklyTss = {
   total_distance: number;
 };
 
+export type AppConfig = {
+  default_ftp: number;
+  default_shoe_type: string | null;
+  session_types: string[];
+  route_locations: string[];
+  shoe_types: string[];
+};
+
+export type ActivityUpdate = Partial<{
+  session_type: string | null;
+  route_location: string | null;
+  shoe_type: string | null;
+  comment: string | null;
+  total_distance: number;
+  threshold_power: number;
+}>;
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, options);
   if (!response.ok) {
@@ -118,6 +139,26 @@ export function fetchTrainingMetrics() {
   return request<TrainingMetrics>("/training/metrics");
 }
 
+export function fetchConfig() {
+  return request<AppConfig>("/config");
+}
+
+export function updateConfig(payload: Partial<Pick<AppConfig, "default_ftp" | "default_shoe_type">>) {
+  return request<AppConfig>("/config", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function addConfigOption(category: "session_type" | "route_location" | "shoe_type", value: string) {
+  return request<{ id: number; category: string; value: string }>("/config/options", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ category, value }),
+  });
+}
+
 export function fetchWeeklyTss() {
   return request<WeeklyTss>("/training/week");
 }
@@ -136,5 +177,13 @@ export function updateThresholdPower(id: number, thresholdPower: number) {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ threshold_power: thresholdPower }),
+  });
+}
+
+export function updateActivity(id: number, payload: ActivityUpdate) {
+  return request<Activity>(`/activities/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
   });
 }

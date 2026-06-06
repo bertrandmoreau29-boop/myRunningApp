@@ -13,6 +13,10 @@ class Activity(Base):
     filename: Mapped[str] = mapped_column(String(255), nullable=False)
     sport: Mapped[str | None] = mapped_column(String(80))
     sub_sport: Mapped[str | None] = mapped_column(String(80))
+    session_type: Mapped[str | None] = mapped_column(String(160))
+    route_location: Mapped[str | None] = mapped_column(String(160))
+    shoe_type: Mapped[str | None] = mapped_column(String(160))
+    comment: Mapped[str | None] = mapped_column(Text)
     started_at: Mapped[datetime | None] = mapped_column(DateTime)
     total_elapsed_time: Mapped[float | None] = mapped_column(Float)
     total_timer_time: Mapped[float | None] = mapped_column(Float)
@@ -83,3 +87,18 @@ class Record(Base):
     temperature: Mapped[int | None] = mapped_column(Integer)
 
     activity: Mapped[Activity] = relationship(back_populates="records")
+
+
+class AppSetting(Base):
+    __tablename__ = "app_settings"
+
+    key: Mapped[str] = mapped_column(String(80), primary_key=True)
+    value: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class OptionValue(Base):
+    __tablename__ = "option_values"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    category: Mapped[str] = mapped_column(String(80), index=True, nullable=False)
+    value: Mapped[str] = mapped_column(String(200), nullable=False)

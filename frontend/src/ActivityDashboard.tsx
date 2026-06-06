@@ -12,16 +12,21 @@ import {
 } from "lucide-react";
 import {
   Activity,
+  AppConfig,
   Lap,
   RecordPoint,
   TrainingMetrics,
   WeeklyTss,
+  addConfigOption,
   fetchActivities,
   fetchActivity,
+  fetchConfig,
   fetchLaps,
   fetchRecords,
   fetchTrainingMetrics,
   fetchWeeklyTss,
+  updateActivity,
+  updateConfig,
   updateThresholdPower,
   uploadFit,
 } from "./api";
@@ -45,7 +50,7 @@ type DetailState = {
 
 const emptyDetail: DetailState = { activity: null, laps: [], records: [] };
 type WeeklyMetric = "tss" | "duration" | "distance";
-type Page = "dashboard" | "charts";
+type Page = "dashboard" | "charts" | "config";
 
 type EfPoint = {
   date: Date;
@@ -58,6 +63,7 @@ export function ActivityDashboard() {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [trainingMetrics, setTrainingMetrics] = useState<TrainingMetrics | null>(null);
   const [weeklyTss, setWeeklyTss] = useState<WeeklyTss | null>(null);
+  const [appConfig, setAppConfig] = useState<AppConfig | null>(null);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [detail, setDetail] = useState<DetailState>(emptyDetail);
   const [isLoading, setIsLoading] = useState(true);
@@ -94,9 +100,18 @@ export function ActivityDashboard() {
     }
   }
 
+  async function loadConfig() {
+    try {
+      setAppConfig(await fetchConfig());
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Erreur inconnue");
+    }
+  }
+
   useEffect(() => {
     void loadActivities();
     void loadTrainingMetrics();
+    void loadConfig();
   }, []);
 
   useEffect(() => {
@@ -134,6 +149,7 @@ export function ActivityDashboard() {
       const uploaded = await uploadFit(file);
       await loadActivities(uploaded.id);
       await loadTrainingMetrics();
+      await loadConfig();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Erreur inconnue");
     } finally {
@@ -161,6 +177,36 @@ export function ActivityDashboard() {
       setError(caught instanceof Error ? caught.message : "Erreur inconnue");
     } finally {
       setSavingThresholdId(null);
+    }
+  }
+
+  function mergeUpdatedActivity(updated: Activity) {
+    setActivities((current) => current.map((item) => (item.id === updated.id ? { ...item, ...updated } : item)));
+    if (detail.activity?.id === updated.id) {
+      setDetail((current) => ({ ...current, activity: { ...current.activity!, ...updated } }));
+    }
+  }
+
+  async function handleActivityUpdate(activity: Activity, payload: Parameters<typeof updateActivity>[1]) {
+    setError(null);
+    try {
+      const updated = await updateActivity(activity.id, payload);
+      mergeUpdatedActivity(updated);
+      await loadTrainingMetrics();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Erreur inconnue");
+    }
+  }
+
+  async function handleAddOption(category: "session_type" | "route_location" | "shoe_type") {
+    const value = window.prompt("Nouvelle valeur");
+    if (!value?.trim()) return;
+    setError(null);
+    try {
+      await addConfigOption(category, value.trim());
+      await loadConfig();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Erreur inconnue");
     }
   }
 
@@ -249,18 +295,38 @@ export function ActivityDashboard() {
         <button className={page === "charts" ? "selected" : ""} type="button" onClick={() => setPage("charts")}>
           Graphiques
         </button>
+        <button className={page === "config" ? "selected" : ""} type="button" onClick={() => setPage("config")}>
+          Configuration
+        </button>
       </nav>
 
       {error && <div className="notice">{error}</div>}
 
       {page === "charts" ? (
         <ChartsPage efSeries={efSeries} />
+      ) : page === "config" ? (
+        <ConfigPage
+          appConfig={appConfig}
+          onAddOption={handleAddOption}
+          onRefresh={loadConfig}
+          onUpdateConfig={async (payload) => {
+            const updated = await updateConfig(payload);
+            setAppConfig(updated);
+          }}
+        />
       ) : (
         <DashboardContent
           activities={activities}
           detail={detail}
           formatWeeklyValue={formatWeeklyValue}
           handleThresholdBlur={handleThresholdBlur}
+          handleActivityUpdate={handleActivityUpdate}
+          onAddOption={handleAddOption}
+          onUpdateConfig={async (payload) => {
+            const updated = await updateConfig(payload);
+            setAppConfig(updated);
+          }}
+          appConfig={appConfig}
           isLoading={isLoading}
           loadActivities={() => void loadActivities()}
           maxWeeklyTss={maxWeeklyTss}
@@ -306,6 +372,10 @@ function DashboardContent({
   setShowRecords,
   sortDirection,
   setSortDirection,
+  appConfig,
+  handleActivityUpdate,
+  onAddOption,
+  onUpdateConfig,
 }: {
   trainingMetrics: TrainingMetrics | null;
   weeklyTss: WeeklyTss | null;
@@ -328,6 +398,10 @@ function DashboardContent({
   setShowRecords: (updater: (current: boolean) => boolean) => void;
   sortDirection: "asc" | "desc";
   setSortDirection: (updater: (current: "asc" | "desc") => "asc" | "desc") => void;
+  appConfig: AppConfig | null;
+  handleActivityUpdate: (activity: Activity, payload: Parameters<typeof updateActivity>[1]) => Promise<void>;
+  onAddOption: (category: "session_type" | "route_location" | "shoe_type") => Promise<void>;
+  onUpdateConfig: (payload: Partial<Pick<AppConfig, "default_ftp" | "default_shoe_type">>) => Promise<void>;
 }) {
   return (
     <>
@@ -433,9 +507,10 @@ function DashboardContent({
                     <th>Date</th>
                     <th>Distance</th>
                     <th>Duree</th>
+                    <th>Type de seance</th>
+                    <th>Lieu/parcours</th>
                     <th>Allure</th>
                     <th>FC moy.</th>
-                    <th>Cadence</th>
                     <th>Puissance</th>
                     <th>Puiss. norm.</th>
                     <th>FTP</th>
@@ -444,6 +519,7 @@ function DashboardContent({
                     <th>TSS</th>
                     <th>D+</th>
                     <th>D-</th>
+                    <th>Cadence</th>
                     <th>Contact sol</th>
                   </tr>
                 </thead>
@@ -455,11 +531,41 @@ function DashboardContent({
                       onClick={() => setSelectedId(activity.id)}
                     >
                       <td>{formatDate(activity.started_at)}</td>
-                      <td>{formatDistance(activity.total_distance)}</td>
+                      <td>
+                        <input
+                          className="distance-input"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          defaultValue={activity.total_distance == null ? "" : (activity.total_distance / 1000).toFixed(2)}
+                          onClick={(event) => event.stopPropagation()}
+                          onBlur={(event) => {
+                            const distanceKm = Number.parseFloat(event.currentTarget.value);
+                            if (Number.isFinite(distanceKm)) {
+                              void handleActivityUpdate(activity, { total_distance: distanceKm * 1000 });
+                            }
+                          }}
+                        />
+                      </td>
                       <td>{formatDuration(activity.total_timer_time)}</td>
+                      <td>
+                        <EditableSelect
+                          value={activity.session_type}
+                          options={appConfig?.session_types ?? []}
+                          onAdd={() => void onAddOption("session_type")}
+                          onChange={(value) => void handleActivityUpdate(activity, { session_type: value })}
+                        />
+                      </td>
+                      <td>
+                        <EditableSelect
+                          value={activity.route_location}
+                          options={appConfig?.route_locations ?? []}
+                          onAdd={() => void onAddOption("route_location")}
+                          onChange={(value) => void handleActivityUpdate(activity, { route_location: value })}
+                        />
+                      </td>
                       <td>{formatPace(activity.avg_speed)}</td>
                       <td>{formatNumber(activity.avg_heart_rate, " bpm")}</td>
-                      <td>{formatCadence(activity.avg_cadence)}</td>
                       <td>{formatNumber(activity.avg_power, " W")}</td>
                       <td>{formatNumber(activity.normalized_power, " W")}</td>
                       <td>
@@ -485,6 +591,7 @@ function DashboardContent({
                       <td>{formatDecimal(activity.training_stress_score, 1)}</td>
                       <td>{formatNumber(activity.ascent, " m")}</td>
                       <td>{formatNumber(activity.descent, " m")}</td>
+                      <td>{formatCadence(activity.avg_cadence)}</td>
                       <td>{formatMilliseconds(activity.avg_ground_contact_time)}</td>
                     </tr>
                   ))}
@@ -496,22 +603,50 @@ function DashboardContent({
 
         <div className="panel detail-panel">
           <div className="panel-header">
-            <h2>Details</h2>
+            <h2>Commentaire</h2>
             <span>{detail.activity ? formatDate(detail.activity.started_at) : "-"}</span>
           </div>
 
-          <div className="summary-strip">
-            <span>Sport: {detail.activity?.sport ?? "-"}</span>
-            <span>Vitesse moy.: {formatSpeed(detail.activity?.avg_speed ?? null)}</span>
-            <span>Puissance: {formatNumber(detail.activity?.avg_power ?? null, " W")}</span>
-            <span>Puiss. norm.: {formatNumber(detail.activity?.normalized_power ?? null, " W")}</span>
-            <span>FTP: {formatNumber(detail.activity?.threshold_power ?? null, " W")}</span>
-            <span>EF: {formatDecimal(detail.activity?.efficiency_factor ?? null, 2)}</span>
-            <span>TSS: {formatDecimal(detail.activity?.training_stress_score ?? null, 1)}</span>
-            <span>Contact sol: {formatMilliseconds(detail.activity?.avg_ground_contact_time ?? null)}</span>
-            <span>D+: {formatNumber(detail.activity?.ascent ?? null, " m")}</span>
-            <span>D-: {formatNumber(detail.activity?.descent ?? null, " m")}</span>
+          <div className="side-config">
+            <label>
+              <span>FTP par defaut</span>
+              <input
+                type="number"
+                min="1"
+                max="2000"
+                defaultValue={appConfig?.default_ftp ?? ""}
+                onBlur={(event) => {
+                  const value = Number.parseInt(event.currentTarget.value, 10);
+                  if (Number.isFinite(value)) void onUpdateConfig({ default_ftp: value });
+                }}
+              />
+            </label>
+            <label>
+              <span>Chaussures par defaut</span>
+              <select
+                value={appConfig?.default_shoe_type ?? ""}
+                onChange={(event) => void onUpdateConfig({ default_shoe_type: event.currentTarget.value })}
+              >
+                <option value="">-</option>
+                {(appConfig?.shoe_types ?? []).map((shoe) => (
+                  <option key={shoe} value={shoe}>
+                    {shoe}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
+
+          <textarea
+            className="comment-box"
+            placeholder="Commentaire de seance"
+            defaultValue={detail.activity?.comment ?? ""}
+            key={detail.activity?.id ?? "empty-comment"}
+            onBlur={(event) => {
+              if (!detail.activity) return;
+              void handleActivityUpdate(detail.activity, { comment: event.currentTarget.value });
+            }}
+          />
 
           <h3>Tours</h3>
           <div className="table-scroll compact">
@@ -601,6 +736,123 @@ function DashboardContent({
         </div>
       </section>
     </>
+  );
+}
+
+function EditableSelect({
+  value,
+  options,
+  onChange,
+  onAdd,
+}: {
+  value: string | null;
+  options: string[];
+  onChange: (value: string | null) => void;
+  onAdd: () => void;
+}) {
+  return (
+    <div className="editable-select" onClick={(event) => event.stopPropagation()}>
+      <select value={value ?? ""} onChange={(event) => onChange(event.currentTarget.value || null)}>
+        <option value="">-</option>
+        {options.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+      <button type="button" onClick={onAdd} title="Ajouter une valeur">
+        +
+      </button>
+    </div>
+  );
+}
+
+function ConfigPage({
+  appConfig,
+  onAddOption,
+  onRefresh,
+  onUpdateConfig,
+}: {
+  appConfig: AppConfig | null;
+  onAddOption: (category: "session_type" | "route_location" | "shoe_type") => Promise<void>;
+  onRefresh: () => Promise<void>;
+  onUpdateConfig: (payload: Partial<Pick<AppConfig, "default_ftp" | "default_shoe_type">>) => Promise<void>;
+}) {
+  return (
+    <section className="config-page">
+      <div className="panel config-panel">
+        <div className="panel-header">
+          <h2>Configuration</h2>
+          <button className="icon-button" type="button" onClick={() => void onRefresh()} title="Rafraichir">
+            <RefreshCw size={17} />
+          </button>
+        </div>
+
+        <div className="config-grid">
+          <label>
+            <span>FTP par defaut</span>
+            <input
+              type="number"
+              min="1"
+              max="2000"
+              defaultValue={appConfig?.default_ftp ?? 221}
+              onBlur={(event) => {
+                const value = Number.parseInt(event.currentTarget.value, 10);
+                if (Number.isFinite(value)) void onUpdateConfig({ default_ftp: value });
+              }}
+            />
+          </label>
+          <label>
+            <span>Chaussures par defaut</span>
+            <select
+              value={appConfig?.default_shoe_type ?? ""}
+              onChange={(event) => void onUpdateConfig({ default_shoe_type: event.currentTarget.value })}
+            >
+              <option value="">-</option>
+              {(appConfig?.shoe_types ?? []).map((shoe) => (
+                <option key={shoe} value={shoe}>
+                  {shoe}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      </div>
+
+      <OptionPanel
+        title="Types de seance"
+        values={appConfig?.session_types ?? []}
+        onAdd={() => void onAddOption("session_type")}
+      />
+      <OptionPanel
+        title="Lieux / parcours"
+        values={appConfig?.route_locations ?? []}
+        onAdd={() => void onAddOption("route_location")}
+      />
+      <OptionPanel
+        title="Chaussures"
+        values={appConfig?.shoe_types ?? []}
+        onAdd={() => void onAddOption("shoe_type")}
+      />
+    </section>
+  );
+}
+
+function OptionPanel({ title, values, onAdd }: { title: string; values: string[]; onAdd: () => void }) {
+  return (
+    <div className="panel config-panel">
+      <div className="panel-header">
+        <h2>{title}</h2>
+        <button className="add-button" type="button" onClick={onAdd}>
+          Ajouter
+        </button>
+      </div>
+      <ul className="option-list">
+        {values.map((value) => (
+          <li key={value}>{value}</li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
