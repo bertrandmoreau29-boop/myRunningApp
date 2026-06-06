@@ -13,6 +13,7 @@ router = APIRouter(prefix="/training", tags=["training"])
 FITNESS_DAYS = 42
 FATIGUE_DAYS = 7
 CALENDAR_WEEKS = 12
+VO2_MIN_SPEED = 1000 / 270
 
 # Baseline known by the user before a full historical import is available.
 INITIAL_FITNESS = 44.0
@@ -187,6 +188,12 @@ def _fraction_group(title: str, key: str, rows: list[dict[str, object]]) -> dict
     return {"key": key, "title": title, "rows": rows}
 
 
+def _heart_rate_percent(avg_heart_rate: int | None, max_hr: int) -> float | None:
+    if avg_heart_rate is None:
+        return None
+    return (float(avg_heart_rate) / max_hr) * 100
+
+
 def _fraction_type_from_session_type(session_type: str | None) -> str | None:
     if not session_type:
         return None
@@ -340,13 +347,16 @@ def get_training_fractions(db: Session = Depends(get_db)) -> dict[str, object]:
 
     for activity, lap in rows:
         fraction_type = _fraction_type_from_session_type(activity.session_type)
+        heart_rate_percent = _heart_rate_percent(lap.avg_heart_rate, max_hr)
         if fraction_type == "marathon":
-            marathon_rows.append(_fraction_row(activity, lap, "marathon"))
+            if heart_rate_percent is not None and 83 <= heart_rate_percent <= 87:
+                marathon_rows.append(_fraction_row(activity, lap, "marathon"))
         elif fraction_type == "threshold":
-            threshold_rows.append(_fraction_row(activity, lap, "threshold"))
+            if heart_rate_percent is not None and 88 <= heart_rate_percent <= 92:
+                threshold_rows.append(_fraction_row(activity, lap, "threshold"))
         elif fraction_type == "vo2max":
             duration_seconds = float(lap.total_timer_time or lap.total_elapsed_time or 0)
-            if duration_seconds > 6 * 60:
+            if duration_seconds > 6 * 60 or lap.avg_speed is None or lap.avg_speed <= VO2_MIN_SPEED:
                 continue
             duration_minutes = max(1, round(duration_seconds / 60))
             vo2_rows_by_duration.setdefault(duration_minutes, []).append(_fraction_row(activity, lap, "vo2max"))

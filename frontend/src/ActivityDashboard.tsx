@@ -1151,7 +1151,7 @@ function FractionsPage({ fractions }: { fractions: TrainingFractions | null }) {
       <div className="fractions-title">
         <div>
           <h2>Fractions</h2>
-          <p>Regroupement des tours par type de seance, avec FCmax {fractions.max_hr} bpm.</p>
+          <p>Type de seance d'abord, puis filtre FC pour seuil/marathon et allure pour VO2.</p>
         </div>
       </div>
       <div className="fraction-groups">
