@@ -15,6 +15,7 @@ class ActivitySummary(BaseModel):
     route_location: str | None = None
     shoe_type: str | None = None
     comment: str | None = None
+    distance_manually_edited: int | None = None
     started_at: datetime | None = None
     total_elapsed_time: float | None = None
     total_timer_time: float | None = None

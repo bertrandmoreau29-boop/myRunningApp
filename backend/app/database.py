@@ -40,6 +40,7 @@ def _ensure_sqlite_columns() -> None:
             "route_location": "VARCHAR(160)",
             "shoe_type": "VARCHAR(160)",
             "comment": "TEXT",
+            "distance_manually_edited": "INTEGER",
             "avg_power": "INTEGER",
             "max_power": "INTEGER",
             "normalized_power": "INTEGER",

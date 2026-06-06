@@ -73,6 +73,7 @@ export function ActivityDashboard() {
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [weeklyMetric, setWeeklyMetric] = useState<WeeklyMetric>("tss");
   const [page, setPage] = useState<Page>("dashboard");
+  const [editingDistanceId, setEditingDistanceId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function loadActivities(nextSelectedId?: number) {
@@ -327,12 +328,14 @@ export function ActivityDashboard() {
             setAppConfig(updated);
           }}
           appConfig={appConfig}
+          editingDistanceId={editingDistanceId}
           isLoading={isLoading}
           loadActivities={() => void loadActivities()}
           maxWeeklyTss={maxWeeklyTss}
           savingThresholdId={savingThresholdId}
           selectedId={selectedId}
           setSelectedId={setSelectedId}
+          setEditingDistanceId={setEditingDistanceId}
           setShowRecords={setShowRecords}
           setSortDirection={setSortDirection}
           setWeeklyMetric={setWeeklyMetric}
@@ -373,9 +376,11 @@ function DashboardContent({
   sortDirection,
   setSortDirection,
   appConfig,
+  editingDistanceId,
   handleActivityUpdate,
   onAddOption,
   onUpdateConfig,
+  setEditingDistanceId,
 }: {
   trainingMetrics: TrainingMetrics | null;
   weeklyTss: WeeklyTss | null;
@@ -399,9 +404,11 @@ function DashboardContent({
   sortDirection: "asc" | "desc";
   setSortDirection: (updater: (current: "asc" | "desc") => "asc" | "desc") => void;
   appConfig: AppConfig | null;
+  editingDistanceId: number | null;
   handleActivityUpdate: (activity: Activity, payload: Parameters<typeof updateActivity>[1]) => Promise<void>;
   onAddOption: (category: "session_type" | "route_location" | "shoe_type") => Promise<void>;
   onUpdateConfig: (payload: Partial<Pick<AppConfig, "default_ftp" | "default_shoe_type">>) => Promise<void>;
+  setEditingDistanceId: (id: number | null) => void;
 }) {
   return (
     <>
@@ -420,50 +427,82 @@ function DashboardContent({
         </article>
       </section>
 
-      <section className="weekly-tss-widget" aria-label="TSS de la semaine">
-        <div className="weekly-tss-header">
-          <h2>Vue semaine</h2>
-          <div className="weekly-totals" aria-label="Totaux semaine">
-            <button
-              className={weeklyMetric === "tss" ? "selected" : ""}
-              type="button"
-              onClick={() => setWeeklyMetric("tss")}
+      <section className="weekly-zone">
+        <div className="side-config weekly-side-config">
+          <label>
+            <span>FTP par defaut</span>
+            <input
+              type="number"
+              min="1"
+              max="2000"
+              defaultValue={appConfig?.default_ftp ?? ""}
+              onBlur={(event) => {
+                const value = Number.parseInt(event.currentTarget.value, 10);
+                if (Number.isFinite(value)) void onUpdateConfig({ default_ftp: value });
+              }}
+            />
+          </label>
+          <label>
+            <span>Chaussures par defaut</span>
+            <select
+              value={appConfig?.default_shoe_type ?? ""}
+              onChange={(event) => void onUpdateConfig({ default_shoe_type: event.currentTarget.value })}
             >
-              <span>TSS</span>
-              <strong>{weeklyTss ? weeklyTss.total_tss.toFixed(1) : "-"}</strong>
-            </button>
-            <button
-              className={weeklyMetric === "duration" ? "selected" : ""}
-              type="button"
-              onClick={() => setWeeklyMetric("duration")}
-            >
-              <span>Duree</span>
-              <strong>{weeklyTss ? formatDuration(weeklyTss.total_duration) : "-"}</strong>
-            </button>
-            <button
-              className={weeklyMetric === "distance" ? "selected" : ""}
-              type="button"
-              onClick={() => setWeeklyMetric("distance")}
-            >
-              <span>Km</span>
-              <strong>{weeklyTss ? formatDistance(weeklyTss.total_distance) : "-"}</strong>
-            </button>
-          </div>
+              <option value="">-</option>
+              {(appConfig?.shoe_types ?? []).map((shoe) => (
+                <option key={shoe} value={shoe}>
+                  {shoe}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
-        <p className="weekly-chart-label">{weeklyMetricLabel}</p>
-        <div className="weekly-bars">
-          {(weeklyTss?.days ?? []).map((day) => (
-            <article className="weekly-bar" key={day.date}>
-              <div className="weekly-bar-track">
-                <div
-                  className="weekly-bar-fill"
-                  style={{ height: `${Math.max(4, (day[weeklyMetric] / maxWeeklyTss) * 100)}%` }}
-                />
-              </div>
-              <strong>{formatWeeklyValue(day[weeklyMetric])}</strong>
-              <span>{day.label}</span>
-            </article>
-          ))}
+
+        <div className="weekly-tss-widget" aria-label="TSS de la semaine">
+          <div className="weekly-tss-header">
+            <h2>Vue semaine</h2>
+            <div className="weekly-totals" aria-label="Totaux semaine">
+              <button
+                className={weeklyMetric === "tss" ? "selected" : ""}
+                type="button"
+                onClick={() => setWeeklyMetric("tss")}
+              >
+                <span>TSS</span>
+                <strong>{weeklyTss ? weeklyTss.total_tss.toFixed(1) : "-"}</strong>
+              </button>
+              <button
+                className={weeklyMetric === "duration" ? "selected" : ""}
+                type="button"
+                onClick={() => setWeeklyMetric("duration")}
+              >
+                <span>Duree</span>
+                <strong>{weeklyTss ? formatDuration(weeklyTss.total_duration) : "-"}</strong>
+              </button>
+              <button
+                className={weeklyMetric === "distance" ? "selected" : ""}
+                type="button"
+                onClick={() => setWeeklyMetric("distance")}
+              >
+                <span>Km</span>
+                <strong>{weeklyTss ? formatDistance(weeklyTss.total_distance) : "-"}</strong>
+              </button>
+            </div>
+          </div>
+          <p className="weekly-chart-label">{weeklyMetricLabel}</p>
+          <div className="weekly-bars">
+            {(weeklyTss?.days ?? []).map((day) => (
+              <article className="weekly-bar" key={day.date}>
+                <div className="weekly-bar-track">
+                  <div
+                    className="weekly-bar-fill"
+                    style={{ height: `${Math.max(4, (day[weeklyMetric] / maxWeeklyTss) * 100)}%` }}
+                  />
+                </div>
+                <strong>{formatWeeklyValue(day[weeklyMetric])}</strong>
+                <span>{day.label}</span>
+              </article>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -501,36 +540,6 @@ function DashboardContent({
             <p className="empty-state">Aucune activite importee.</p>
           ) : (
             <div className="activities-content">
-              <div className="side-config table-side-config">
-                <label>
-                  <span>FTP par defaut</span>
-                  <input
-                    type="number"
-                    min="1"
-                    max="2000"
-                    defaultValue={appConfig?.default_ftp ?? ""}
-                    onBlur={(event) => {
-                      const value = Number.parseInt(event.currentTarget.value, 10);
-                      if (Number.isFinite(value)) void onUpdateConfig({ default_ftp: value });
-                    }}
-                  />
-                </label>
-                <label>
-                  <span>Chaussures par defaut</span>
-                  <select
-                    value={appConfig?.default_shoe_type ?? ""}
-                    onChange={(event) => void onUpdateConfig({ default_shoe_type: event.currentTarget.value })}
-                  >
-                    <option value="">-</option>
-                    {(appConfig?.shoe_types ?? []).map((shoe) => (
-                      <option key={shoe} value={shoe}>
-                        {shoe}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-
               <div className="table-scroll">
                 <table>
                   <thead>
@@ -563,18 +572,13 @@ function DashboardContent({
                       >
                         <td>{formatDate(activity.started_at)}</td>
                         <td>
-                          <input
-                            className="distance-input"
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            defaultValue={activity.total_distance == null ? "" : (activity.total_distance / 1000).toFixed(2)}
-                            onClick={(event) => event.stopPropagation()}
-                            onBlur={(event) => {
-                              const distanceKm = Number.parseFloat(event.currentTarget.value);
-                              if (Number.isFinite(distanceKm)) {
-                                void handleActivityUpdate(activity, { total_distance: distanceKm * 1000 });
-                              }
+                          <DistanceCell
+                            activity={activity}
+                            isEditing={editingDistanceId === activity.id}
+                            onEdit={() => setEditingDistanceId(activity.id)}
+                            onSave={(distanceKm) => {
+                              setEditingDistanceId(null);
+                              void handleActivityUpdate(activity, { total_distance: distanceKm * 1000 });
                             }}
                           />
                         </td>
@@ -766,6 +770,46 @@ function EditableSelect({
         +
       </button>
     </div>
+  );
+}
+
+function DistanceCell({
+  activity,
+  isEditing,
+  onEdit,
+  onSave,
+}: {
+  activity: Activity;
+  isEditing: boolean;
+  onEdit: () => void;
+  onSave: (distanceKm: number) => void;
+}) {
+  if (isEditing) {
+    return (
+      <input
+        autoFocus
+        className="distance-input"
+        type="number"
+        min="0"
+        step="0.01"
+        defaultValue={activity.total_distance == null ? "" : (activity.total_distance / 1000).toFixed(2)}
+        onClick={(event) => event.stopPropagation()}
+        onBlur={(event) => {
+          const distanceKm = Number.parseFloat(event.currentTarget.value);
+          if (Number.isFinite(distanceKm)) onSave(distanceKm);
+        }}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") event.currentTarget.blur();
+        }}
+      />
+    );
+  }
+
+  return (
+    <button className="distance-display" type="button" onDoubleClick={onEdit} onClick={(event) => event.stopPropagation()}>
+      <span>{formatDistance(activity.total_distance)}</span>
+      {activity.distance_manually_edited ? <sup>*</sup> : null}
+    </button>
   );
 }
 

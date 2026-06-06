@@ -216,6 +216,7 @@ def update_activity(activity_id: int, payload: ActivityUpdate, db: Session = Dep
 
     if payload.total_distance is not None:
         activity.total_distance = payload.total_distance
+        activity.distance_manually_edited = 1
         _recalculate_distance_metrics(activity)
 
     if payload.threshold_power is not None:

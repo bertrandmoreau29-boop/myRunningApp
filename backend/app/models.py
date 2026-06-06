@@ -17,6 +17,7 @@ class Activity(Base):
     route_location: Mapped[str | None] = mapped_column(String(160))
     shoe_type: Mapped[str | None] = mapped_column(String(160))
     comment: Mapped[str | None] = mapped_column(Text)
+    distance_manually_edited: Mapped[int | None] = mapped_column(Integer)
     started_at: Mapped[datetime | None] = mapped_column(DateTime)
     total_elapsed_time: Mapped[float | None] = mapped_column(Float)
     total_timer_time: Mapped[float | None] = mapped_column(Float)

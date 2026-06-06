@@ -21,6 +21,13 @@ input {
   font: inherit;
 }
 
+input,
+select,
+textarea {
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
 .app-shell {
   min-height: 100vh;
   padding: 24px;
@@ -133,9 +140,17 @@ h1 {
   background: #ffffff;
   border: 1px solid #dbe4dd;
   border-radius: 8px;
-  margin: 0 auto 18px;
-  max-width: 760px;
+  margin: 0;
   padding: 16px;
+}
+
+.weekly-zone {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: 240px minmax(0, 760px);
+  justify-content: center;
+  margin: 0 auto 18px;
+  max-width: 1500px;
 }
 
 .weekly-tss-header {
@@ -332,12 +347,6 @@ h1 {
   gap: 8px;
 }
 
-.activities-content {
-  display: grid;
-  gap: 14px;
-  grid-template-columns: 220px minmax(0, 1fr);
-}
-
 .summary-strip {
   border-bottom: 1px solid #e5ece7;
   border-top: 1px solid #e5ece7;
@@ -428,6 +437,29 @@ td {
   width: 86px;
 }
 
+.distance-display {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: #17201b;
+  cursor: text;
+  min-height: 30px;
+  padding: 0 6px;
+  text-align: left;
+}
+
+.distance-display:hover {
+  background: #f8faf8;
+  border-color: #dbe4dd;
+}
+
+.distance-display sup {
+  color: #c77d23;
+  font-size: 14px;
+  font-weight: 800;
+  margin-left: 2px;
+}
+
 .editable-select {
   align-items: center;
   display: flex;
@@ -442,6 +474,38 @@ td {
   height: 30px;
   max-width: 190px;
   min-width: 150px;
+}
+
+.distance-input,
+.ftp-input,
+.editable-select select,
+.config-grid input,
+.config-grid select,
+.side-config input,
+.side-config select,
+.comment-box {
+  box-shadow: inset 0 1px 2px rgba(23, 32, 27, 0.06);
+  font-size: 13px;
+  transition:
+    border-color 120ms ease,
+    box-shadow 120ms ease,
+    background-color 120ms ease;
+}
+
+.distance-input:focus,
+.ftp-input:focus,
+.editable-select select:focus,
+.config-grid input:focus,
+.config-grid select:focus,
+.side-config input:focus,
+.side-config select:focus,
+.comment-box:focus {
+  background: #ffffff;
+  border-color: #226b45;
+  box-shadow:
+    inset 0 1px 2px rgba(23, 32, 27, 0.06),
+    0 0 0 3px #d8eadf;
+  outline: none;
 }
 
 .editable-select button,
@@ -542,7 +606,7 @@ tbody tr.selected {
   padding-bottom: 12px;
 }
 
-.table-side-config {
+.weekly-side-config {
   align-content: start;
   background: #f8faf8;
   border: 1px solid #e5ece7;
@@ -674,10 +738,6 @@ tbody tr.selected {
     grid-template-columns: 1fr;
   }
 
-  .activities-content {
-    grid-template-columns: 1fr;
-  }
-
   .config-page {
     grid-template-columns: 1fr 1fr;
   }
@@ -720,6 +780,10 @@ tbody tr.selected {
 
   .weekly-tss-widget {
     max-width: 100%;
+  }
+
+  .weekly-zone {
+    grid-template-columns: 1fr;
   }
 
   .weekly-bars {

@@ -9,6 +9,7 @@ export type Activity = {
   route_location: string | null;
   shoe_type: string | null;
   comment: string | null;
+  distance_manually_edited: number | null;
   started_at: string | null;
   total_elapsed_time: number | null;
   total_timer_time: number | null;
