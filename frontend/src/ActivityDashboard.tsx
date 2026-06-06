@@ -802,7 +802,7 @@ function EnduranceQualityWidget({ distribution }: { distribution: WeeklyHrDistri
   const qualityRatio = distribution?.quality_ratio ?? 0;
   const tips =
     distribution?.tips ??
-    "Endurance: sous 80% FCM. Qualite: 80-87% coefficient 0.5, puis 88% et plus coefficient 1.";
+    "Endurance: jusqu'a 80% FCM. Zone grise: >80-82% hors qualite. Qualite: 83-87% coefficient 0.5, puis 88% et plus coefficient 1.";
 
   return (
     <aside className="quality-widget" aria-label="Ratio Endurance Qualite" title={tips}>

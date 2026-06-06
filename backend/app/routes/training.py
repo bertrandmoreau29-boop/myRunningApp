@@ -19,8 +19,9 @@ INITIAL_FATIGUE = 41.0
 WEEKDAY_LABELS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"]
 HR_ZONE_DEFINITIONS = [
     {"key": "recovery", "label": "Endurance recuperation", "range": "60-75%", "min": 60, "max": 75, "color": "#4f8cc9"},
-    {"key": "active", "label": "Endurance active", "range": "76-79%", "min": 76, "max": 79, "color": "#2fa66a"},
-    {"key": "marathon", "label": "Allure marathon", "range": "80-87%", "min": 80, "max": 87, "color": "#c7a223"},
+    {"key": "active", "label": "Endurance active", "range": "76-80%", "min": 76, "max": 80, "color": "#2fa66a"},
+    {"key": "gray", "label": "Zone grise", "range": "80-82%", "min": 80, "max": 82, "color": "#8d99a6"},
+    {"key": "marathon", "label": "Allure marathon", "range": "83-87%", "min": 83, "max": 87, "color": "#c7a223"},
     {"key": "threshold", "label": "Allure seuil lactique", "range": "88-92%", "min": 88, "max": 92, "color": "#d06b2d"},
     {"key": "vo2max", "label": "Allure Vo2Max", "range": "93-100%", "min": 93, "max": 100, "color": "#cf2f2f"},
 ]
@@ -195,8 +196,10 @@ def get_weekly_hr_distribution(db: Session = Depends(get_db)) -> dict[str, objec
         duration = _record_duration_seconds(timestamp, next_timestamp)
         percent = (float(heart_rate) / max_hr) * 100
 
-        if percent < 80:
+        if percent <= 80:
             endurance_seconds += duration
+        elif percent < 83:
+            pass
         elif percent <= 87:
             quality_raw_seconds += duration
             quality_weighted_seconds += duration * 0.5
@@ -205,7 +208,11 @@ def get_weekly_hr_distribution(db: Session = Depends(get_db)) -> dict[str, objec
             quality_weighted_seconds += duration
 
         for definition in HR_ZONE_DEFINITIONS:
-            if definition["min"] <= percent <= definition["max"]:
+            if definition["key"] == "gray":
+                is_in_zone = 80 < percent <= definition["max"]
+            else:
+                is_in_zone = definition["min"] <= percent <= definition["max"]
+            if is_in_zone:
                 zones[definition["key"]]["seconds"] += duration
                 break
 
@@ -235,8 +242,9 @@ def get_weekly_hr_distribution(db: Session = Depends(get_db)) -> dict[str, objec
         "quality_ratio": round(quality_ratio, 1),
         "zones": zone_payload,
         "tips": (
-            "Endurance: chaque point sous 80% FCM compte en endurance. "
-            "Qualite: 80-87% FCM compte avec un coefficient 0.5, "
+            "Endurance: chaque point jusqu'a 80% FCM compte en endurance. "
+            "Zone grise: au-dessus de 80% et jusqu'a 82% FCM, non comptee dans la qualite. "
+            "Qualite: 83-87% FCM compte avec un coefficient 0.5, "
             "88% FCM et plus compte avec un coefficient 1. "
             "Ratio = endurance / (endurance + qualite ponderee)."
         ),
