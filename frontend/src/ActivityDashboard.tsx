@@ -3,6 +3,7 @@ import {
   Activity as ActivityIcon,
   ArrowDownUp,
   FileUp,
+  CalendarDays,
   Mountain,
   RefreshCw,
   Route,
@@ -15,6 +16,7 @@ import {
   AppConfig,
   Lap,
   RecordPoint,
+  TrainingCalendar,
   TrainingMetrics,
   WeeklyHrDistribution,
   WeeklyTss,
@@ -24,6 +26,7 @@ import {
   fetchConfig,
   fetchLaps,
   fetchRecords,
+  fetchTrainingCalendar,
   fetchTrainingMetrics,
   fetchWeeklyHrDistribution,
   fetchWeeklyTss,
@@ -52,7 +55,7 @@ type DetailState = {
 
 const emptyDetail: DetailState = { activity: null, laps: [], records: [] };
 type WeeklyMetric = "tss" | "duration" | "distance";
-type Page = "dashboard" | "charts" | "config";
+type Page = "dashboard" | "charts" | "calendar" | "config";
 
 type EfPoint = {
   date: Date;
@@ -66,6 +69,7 @@ export function ActivityDashboard() {
   const [trainingMetrics, setTrainingMetrics] = useState<TrainingMetrics | null>(null);
   const [weeklyTss, setWeeklyTss] = useState<WeeklyTss | null>(null);
   const [weeklyHrDistribution, setWeeklyHrDistribution] = useState<WeeklyHrDistribution | null>(null);
+  const [trainingCalendar, setTrainingCalendar] = useState<TrainingCalendar | null>(null);
   const [appConfig, setAppConfig] = useState<AppConfig | null>(null);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [detail, setDetail] = useState<DetailState>(emptyDetail);
@@ -96,14 +100,16 @@ export function ActivityDashboard() {
 
   async function loadTrainingMetrics() {
     try {
-      const [metrics, week, hrDistribution] = await Promise.all([
+      const [metrics, week, hrDistribution, calendar] = await Promise.all([
         fetchTrainingMetrics(),
         fetchWeeklyTss(),
         fetchWeeklyHrDistribution(),
+        fetchTrainingCalendar(),
       ]);
       setTrainingMetrics(metrics);
       setWeeklyTss(week);
       setWeeklyHrDistribution(hrDistribution);
+      setTrainingCalendar(calendar);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Erreur inconnue");
     }
@@ -304,6 +310,9 @@ export function ActivityDashboard() {
         <button className={page === "charts" ? "selected" : ""} type="button" onClick={() => setPage("charts")}>
           Graphiques
         </button>
+        <button className={page === "calendar" ? "selected" : ""} type="button" onClick={() => setPage("calendar")}>
+          Calendrier
+        </button>
         <button className={page === "config" ? "selected" : ""} type="button" onClick={() => setPage("config")}>
           Configuration
         </button>
@@ -313,6 +322,8 @@ export function ActivityDashboard() {
 
       {page === "charts" ? (
         <ChartsPage efSeries={efSeries} />
+      ) : page === "calendar" ? (
+        <CalendarPage calendar={trainingCalendar} />
       ) : page === "config" ? (
         <ConfigPage
           appConfig={appConfig}
@@ -1013,6 +1024,141 @@ function OptionPanel({ title, values, onAdd }: { title: string; values: string[]
       </ul>
     </div>
   );
+}
+
+function CalendarPage({ calendar }: { calendar: TrainingCalendar | null }) {
+  if (!calendar) {
+    return (
+      <section className="calendar-page">
+        <p className="empty-state">Chargement du calendrier...</p>
+      </section>
+    );
+  }
+
+  return (
+    <section className="calendar-page">
+      <div className="calendar-title">
+        <div>
+          <h2>Calendrier de charge</h2>
+          <p>Semaines a venir, cible Fitness et TSS necessaire.</p>
+        </div>
+        <CalendarDays size={22} />
+      </div>
+      <div className="calendar-grid">
+        {calendar.weeks.map((week) => (
+          <CalendarWeekCard
+            key={`${week.start_date}-${week.end_date}`}
+            fatigueDays={calendar.fatigue_days}
+            fitnessDays={calendar.fitness_days}
+            week={week}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function CalendarWeekCard({
+  week,
+  fitnessDays,
+  fatigueDays,
+}: {
+  week: TrainingCalendar["weeks"][number];
+  fitnessDays: number;
+  fatigueDays: number;
+}) {
+  const [targetFitness, setTargetFitness] = useState(week.target_fitness);
+  const projection = useMemo(
+    () => calculateWeekProjection(week.start_fitness, week.start_fatigue, targetFitness, fitnessDays, fatigueDays),
+    [fatigueDays, fitnessDays, targetFitness, week.start_fatigue, week.start_fitness],
+  );
+  const maxTss = Math.max(100, projection.requiredTss, week.actual_tss);
+
+  return (
+    <article className={week.index === 0 ? "calendar-card current" : "calendar-card"}>
+      <div className="calendar-card-header">
+        <span>S{week.week_number}</span>
+        <strong>
+          du {formatShortDate(week.start_date)} au {formatShortDate(week.end_date)}
+        </strong>
+      </div>
+      <div className="calendar-target">
+        <label>
+          <span>Fitness cible</span>
+          <input
+            type="number"
+            step="0.1"
+            value={targetFitness}
+            onChange={(event) => setTargetFitness(Number.parseFloat(event.currentTarget.value) || 0)}
+          />
+        </label>
+      </div>
+      <div className="calendar-bars">
+        <div>
+          <span>TSS cible</span>
+          <div className="calendar-mini-track">
+            <i style={{ height: `${Math.max(4, (projection.requiredTss / maxTss) * 100)}%` }} />
+          </div>
+          <strong>{projection.requiredTss.toFixed(0)}</strong>
+        </div>
+        <div>
+          <span>TSS reel</span>
+          <div className="calendar-mini-track muted">
+            <i style={{ height: `${Math.max(4, (week.actual_tss / maxTss) * 100)}%` }} />
+          </div>
+          <strong>{week.actual_tss.toFixed(0)}</strong>
+        </div>
+      </div>
+      <div className="calendar-result">
+        <div>
+          <span>Fitness</span>
+          <strong>{projection.resultingFitness.toFixed(1)}</strong>
+        </div>
+        <div>
+          <span>Fatigue</span>
+          <strong>{projection.resultingFatigue.toFixed(1)}</strong>
+        </div>
+        <div>
+          <span>Forme</span>
+          <strong>{projection.resultingForm.toFixed(1)}</strong>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function calculateWeekProjection(
+  startFitness: number,
+  startFatigue: number,
+  targetFitness: number,
+  fitnessDays: number,
+  fatigueDays: number,
+) {
+  const fitnessDecay = (1 - 1 / fitnessDays) ** 7;
+  const dailyTss = Math.max(0, (targetFitness - startFitness * fitnessDecay) / (1 - fitnessDecay));
+  const requiredTss = dailyTss * 7;
+  let resultingFitness = startFitness;
+  let resultingFatigue = startFatigue;
+
+  for (let day = 0; day < 7; day += 1) {
+    resultingFitness += (dailyTss - resultingFitness) / fitnessDays;
+    resultingFatigue += (dailyTss - resultingFatigue) / fatigueDays;
+  }
+
+  return {
+    requiredTss,
+    resultingFitness,
+    resultingFatigue,
+    resultingForm: resultingFitness - resultingFatigue,
+  };
+}
+
+function formatShortDate(value: string) {
+  return new Intl.DateTimeFormat("fr-FR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).format(new Date(value));
 }
 
 function ChartsPage({ efSeries }: { efSeries: EfPoint[] }) {

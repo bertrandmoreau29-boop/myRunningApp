@@ -12,6 +12,7 @@ router = APIRouter(prefix="/training", tags=["training"])
 
 FITNESS_DAYS = 42
 FATIGUE_DAYS = 7
+CALENDAR_WEEKS = 12
 
 # Baseline known by the user before a full historical import is available.
 INITIAL_FITNESS = 44.0
@@ -29,6 +30,53 @@ HR_ZONE_DEFINITIONS = [
 
 def _apply_daily_load(current: float, tss: float, time_constant_days: int) -> float:
     return current + (tss - current) / time_constant_days
+
+
+def _load_state_until(db: Session, last_day: date) -> tuple[float, float]:
+    daily_tss_rows = _daily_tss_rows(db)
+    if not daily_tss_rows:
+        return INITIAL_FITNESS, INITIAL_FATIGUE
+
+    daily_tss = {
+        date.fromisoformat(str(activity_date)): float(value or 0)
+        for activity_date, value in daily_tss_rows
+        if activity_date is not None
+    }
+    first_day = min(daily_tss)
+
+    fitness = INITIAL_FITNESS
+    fatigue = INITIAL_FATIGUE
+    current_day = first_day
+    while current_day <= last_day:
+        tss = daily_tss.get(current_day, 0.0)
+        fitness = _apply_daily_load(fitness, tss, FITNESS_DAYS)
+        fatigue = _apply_daily_load(fatigue, tss, FATIGUE_DAYS)
+        current_day += timedelta(days=1)
+
+    return fitness, fatigue
+
+
+def _project_load_for_week(start_fitness: float, start_fatigue: float, target_fitness: float) -> dict[str, float]:
+    fitness_decay = (1 - 1 / FITNESS_DAYS) ** 7
+    fatigue_decay = (1 - 1 / FATIGUE_DAYS) ** 7
+    daily_tss = (target_fitness - start_fitness * fitness_decay) / (1 - fitness_decay)
+    weekly_tss = max(0.0, daily_tss * 7)
+    daily_tss = weekly_tss / 7
+    resulting_fitness = start_fitness
+    resulting_fatigue = start_fatigue
+
+    for _ in range(7):
+        resulting_fitness = _apply_daily_load(resulting_fitness, daily_tss, FITNESS_DAYS)
+        resulting_fatigue = _apply_daily_load(resulting_fatigue, daily_tss, FATIGUE_DAYS)
+
+    return {
+        "weekly_tss": weekly_tss,
+        "resulting_fitness": resulting_fitness,
+        "resulting_fatigue": resulting_fatigue,
+        "resulting_form": resulting_fitness - resulting_fatigue,
+        "fitness_decay": fitness_decay,
+        "fatigue_decay": fatigue_decay,
+    }
 
 
 def _daily_tss_rows(db: Session, start_day: date | None = None, end_day: date | None = None) -> list[tuple[object, object]]:
@@ -170,6 +218,58 @@ def get_weekly_tss(db: Session = Depends(get_db)) -> dict[str, object]:
         "total_tss": round(sum(day["tss"] for day in days), 1),
         "total_duration": round(sum(day["duration"] for day in days), 1),
         "total_distance": round(sum(day["distance"] for day in days), 1),
+    }
+
+
+@router.get("/calendar")
+def get_training_calendar(db: Session = Depends(get_db)) -> dict[str, object]:
+    today = date.today()
+    current_week_start = today - timedelta(days=today.weekday())
+    previous_day = current_week_start - timedelta(days=1)
+    start_fitness, start_fatigue = _load_state_until(db, previous_day)
+    current_target = round(start_fitness, 1)
+    weeks = []
+    projected_fitness = start_fitness
+    projected_fatigue = start_fatigue
+
+    for index in range(CALENDAR_WEEKS):
+        start_day = current_week_start + timedelta(days=index * 7)
+        end_day = start_day + timedelta(days=6)
+        week_number = start_day.isocalendar().week
+
+        if index == 0:
+            target_fitness = current_target
+        else:
+            cycle_increment = [3, 3, 0][(index - 1) % 3]
+            target_fitness = round((weeks[-1]["target_fitness"] if weeks else current_target) + cycle_increment, 1)
+
+        projection = _project_load_for_week(projected_fitness, projected_fatigue, target_fitness)
+        actual_rows = _daily_week_rows(db, start_day, end_day)
+        actual_tss = sum(float(row[1] or 0) for row in actual_rows)
+
+        weeks.append(
+            {
+                "index": index,
+                "week_number": week_number,
+                "start_date": start_day.isoformat(),
+                "end_date": end_day.isoformat(),
+                "target_fitness": round(target_fitness, 1),
+                "required_tss": round(projection["weekly_tss"], 1),
+                "actual_tss": round(actual_tss, 1),
+                "start_fitness": round(projected_fitness, 1),
+                "start_fatigue": round(projected_fatigue, 1),
+                "resulting_fitness": round(projection["resulting_fitness"], 1),
+                "resulting_fatigue": round(projection["resulting_fatigue"], 1),
+                "resulting_form": round(projection["resulting_form"], 1),
+            }
+        )
+        projected_fitness = projection["resulting_fitness"]
+        projected_fatigue = projection["resulting_fatigue"]
+
+    return {
+        "fitness_days": FITNESS_DAYS,
+        "fatigue_days": FATIGUE_DAYS,
+        "weeks": weeks,
     }
 
 

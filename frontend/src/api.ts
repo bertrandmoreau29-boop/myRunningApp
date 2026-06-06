@@ -115,6 +115,27 @@ export type WeeklyHrDistribution = {
   tips: string;
 };
 
+export type CalendarWeek = {
+  index: number;
+  week_number: number;
+  start_date: string;
+  end_date: string;
+  target_fitness: number;
+  required_tss: number;
+  actual_tss: number;
+  start_fitness: number;
+  start_fatigue: number;
+  resulting_fitness: number;
+  resulting_fatigue: number;
+  resulting_form: number;
+};
+
+export type TrainingCalendar = {
+  fitness_days: number;
+  fatigue_days: number;
+  weeks: CalendarWeek[];
+};
+
 export type AppConfig = {
   default_ftp: number;
   default_max_hr: number;
@@ -188,6 +209,10 @@ export function fetchWeeklyTss() {
 
 export function fetchWeeklyHrDistribution() {
   return request<WeeklyHrDistribution>("/training/week-zones");
+}
+
+export function fetchTrainingCalendar() {
+  return request<TrainingCalendar>("/training/calendar");
 }
 
 export function uploadFit(file: File) {
