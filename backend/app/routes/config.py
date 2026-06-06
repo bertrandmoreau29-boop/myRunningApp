@@ -43,6 +43,7 @@ def _options(db: Session, category: str) -> list[str]:
 def get_config(db: Session = Depends(get_db)) -> AppConfigRead:
     return AppConfigRead(
         default_ftp=int(_setting(db, "default_ftp", "221")),
+        default_max_hr=int(_setting(db, "default_max_hr", "176")),
         default_shoe_type=_setting(db, "default_shoe_type", ""),
         session_types=_options(db, "session_type"),
         route_locations=_options(db, "route_location"),
@@ -54,6 +55,8 @@ def get_config(db: Session = Depends(get_db)) -> AppConfigRead:
 def update_config(payload: AppConfigUpdate, db: Session = Depends(get_db)) -> AppConfigRead:
     if payload.default_ftp is not None:
         _set_setting(db, "default_ftp", str(payload.default_ftp))
+    if payload.default_max_hr is not None:
+        _set_setting(db, "default_max_hr", str(payload.default_max_hr))
     if payload.default_shoe_type is not None:
         _set_setting(db, "default_shoe_type", payload.default_shoe_type)
     db.commit()

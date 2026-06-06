@@ -16,6 +16,7 @@ import {
   Lap,
   RecordPoint,
   TrainingMetrics,
+  WeeklyHrDistribution,
   WeeklyTss,
   addConfigOption,
   fetchActivities,
@@ -24,6 +25,7 @@ import {
   fetchLaps,
   fetchRecords,
   fetchTrainingMetrics,
+  fetchWeeklyHrDistribution,
   fetchWeeklyTss,
   updateActivity,
   updateConfig,
@@ -63,6 +65,7 @@ export function ActivityDashboard() {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [trainingMetrics, setTrainingMetrics] = useState<TrainingMetrics | null>(null);
   const [weeklyTss, setWeeklyTss] = useState<WeeklyTss | null>(null);
+  const [weeklyHrDistribution, setWeeklyHrDistribution] = useState<WeeklyHrDistribution | null>(null);
   const [appConfig, setAppConfig] = useState<AppConfig | null>(null);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [detail, setDetail] = useState<DetailState>(emptyDetail);
@@ -93,9 +96,14 @@ export function ActivityDashboard() {
 
   async function loadTrainingMetrics() {
     try {
-      const [metrics, week] = await Promise.all([fetchTrainingMetrics(), fetchWeeklyTss()]);
+      const [metrics, week, hrDistribution] = await Promise.all([
+        fetchTrainingMetrics(),
+        fetchWeeklyTss(),
+        fetchWeeklyHrDistribution(),
+      ]);
       setTrainingMetrics(metrics);
       setWeeklyTss(week);
+      setWeeklyHrDistribution(hrDistribution);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Erreur inconnue");
     }
@@ -313,6 +321,7 @@ export function ActivityDashboard() {
           onUpdateConfig={async (payload) => {
             const updated = await updateConfig(payload);
             setAppConfig(updated);
+            await loadTrainingMetrics();
           }}
         />
       ) : (
@@ -326,6 +335,7 @@ export function ActivityDashboard() {
           onUpdateConfig={async (payload) => {
             const updated = await updateConfig(payload);
             setAppConfig(updated);
+            await loadTrainingMetrics();
           }}
           appConfig={appConfig}
           editingDistanceId={editingDistanceId}
@@ -346,6 +356,7 @@ export function ActivityDashboard() {
           trainingMetrics={trainingMetrics}
           weeklyMetric={weeklyMetric}
           weeklyMetricLabel={weeklyMetricLabel}
+          weeklyHrDistribution={weeklyHrDistribution}
           weeklyTss={weeklyTss}
         />
       )}
@@ -356,6 +367,7 @@ export function ActivityDashboard() {
 function DashboardContent({
   trainingMetrics,
   weeklyTss,
+  weeklyHrDistribution,
   weeklyMetric,
   maxWeeklyTss,
   weeklyMetricLabel,
@@ -384,6 +396,7 @@ function DashboardContent({
 }: {
   trainingMetrics: TrainingMetrics | null;
   weeklyTss: WeeklyTss | null;
+  weeklyHrDistribution: WeeklyHrDistribution | null;
   weeklyMetric: WeeklyMetric;
   maxWeeklyTss: number;
   weeklyMetricLabel: string;
@@ -407,7 +420,7 @@ function DashboardContent({
   editingDistanceId: number | null;
   handleActivityUpdate: (activity: Activity, payload: Parameters<typeof updateActivity>[1]) => Promise<void>;
   onAddOption: (category: "session_type" | "route_location" | "shoe_type") => Promise<void>;
-  onUpdateConfig: (payload: Partial<Pick<AppConfig, "default_ftp" | "default_shoe_type">>) => Promise<void>;
+  onUpdateConfig: (payload: Partial<Pick<AppConfig, "default_ftp" | "default_max_hr" | "default_shoe_type">>) => Promise<void>;
   setEditingDistanceId: (id: number | null) => void;
 }) {
   return (
@@ -443,6 +456,19 @@ function DashboardContent({
             />
           </label>
           <label>
+            <span>FCmax</span>
+            <input
+              type="number"
+              min="1"
+              max="250"
+              defaultValue={appConfig?.default_max_hr ?? 176}
+              onBlur={(event) => {
+                const value = Number.parseInt(event.currentTarget.value, 10);
+                if (Number.isFinite(value)) void onUpdateConfig({ default_max_hr: value });
+              }}
+            />
+          </label>
+          <label>
             <span>Chaussures par defaut</span>
             <select
               value={appConfig?.default_shoe_type ?? ""}
@@ -457,6 +483,8 @@ function DashboardContent({
             </select>
           </label>
         </div>
+
+        <HrScaleWidget maxHr={appConfig?.default_max_hr ?? weeklyHrDistribution?.max_hr ?? 176} />
 
         <div className="weekly-tss-widget" aria-label="TSS de la semaine">
           <div className="weekly-tss-header">
@@ -504,6 +532,8 @@ function DashboardContent({
             ))}
           </div>
         </div>
+
+        <EnduranceQualityWidget distribution={weeklyHrDistribution} />
       </section>
 
       <section className="stats-grid">
@@ -745,6 +775,76 @@ function DashboardContent({
   );
 }
 
+function HrScaleWidget({ maxHr }: { maxHr: number }) {
+  const ticks = [95, 90, 85, 80, 75, 70, 65];
+
+  return (
+    <aside className="hr-scale-widget" aria-label="Repères FCM">
+      <div className="hr-scale-header">
+        <h2>FCM</h2>
+        <strong>{maxHr} bpm</strong>
+      </div>
+      <div className="hr-scale-track">
+        {ticks.map((percent) => (
+          <div className="hr-scale-row" key={percent}>
+            <span>{percent}%</span>
+            <i />
+            <strong>{Math.round((maxHr * percent) / 100)}</strong>
+          </div>
+        ))}
+      </div>
+    </aside>
+  );
+}
+
+function EnduranceQualityWidget({ distribution }: { distribution: WeeklyHrDistribution | null }) {
+  const enduranceRatio = distribution?.endurance_ratio ?? 0;
+  const qualityRatio = distribution?.quality_ratio ?? 0;
+  const tips =
+    distribution?.tips ??
+    "Endurance: sous 80% FCM. Qualite: 80-87% coefficient 0.5, puis 88% et plus coefficient 1.";
+
+  return (
+    <aside className="quality-widget" aria-label="Ratio Endurance Qualite" title={tips}>
+      <div className="quality-header">
+        <h2>Endurance / Qualite</h2>
+        <span>cible 90 / 10</span>
+      </div>
+      <div className="quality-ratio">
+        <strong>{enduranceRatio.toFixed(0)}%</strong>
+        <span>{qualityRatio.toFixed(0)}%</span>
+      </div>
+      <div className="quality-bar" aria-hidden="true">
+        <div className="quality-bar-endurance" style={{ width: `${Math.min(100, enduranceRatio)}%` }} />
+        <div className="quality-bar-quality" style={{ width: `${Math.min(100, qualityRatio)}%` }} />
+      </div>
+      <p className="quality-tips">tips</p>
+      <div className="quality-times">
+        <div>
+          <span>Endurance</span>
+          <strong>{formatDuration(distribution?.endurance_seconds ?? null)}</strong>
+        </div>
+        <div>
+          <span>Qualite ponderee</span>
+          <strong>{formatDuration(distribution?.quality_weighted_seconds ?? null)}</strong>
+        </div>
+      </div>
+      <ul className="zone-list">
+        {(distribution?.zones ?? []).map((zone) => (
+          <li key={zone.key}>
+            <span className="zone-line" style={{ backgroundColor: zone.color }} />
+            <div>
+              <strong>{zone.label}</strong>
+              <span>{zone.range}</span>
+            </div>
+            <em>{formatDuration(zone.seconds)}</em>
+          </li>
+        ))}
+      </ul>
+    </aside>
+  );
+}
+
 function EditableSelect({
   value,
   options,
@@ -822,7 +922,7 @@ function ConfigPage({
   appConfig: AppConfig | null;
   onAddOption: (category: "session_type" | "route_location" | "shoe_type") => Promise<void>;
   onRefresh: () => Promise<void>;
-  onUpdateConfig: (payload: Partial<Pick<AppConfig, "default_ftp" | "default_shoe_type">>) => Promise<void>;
+  onUpdateConfig: (payload: Partial<Pick<AppConfig, "default_ftp" | "default_max_hr" | "default_shoe_type">>) => Promise<void>;
 }) {
   return (
     <section className="config-page">
@@ -845,6 +945,19 @@ function ConfigPage({
               onBlur={(event) => {
                 const value = Number.parseInt(event.currentTarget.value, 10);
                 if (Number.isFinite(value)) void onUpdateConfig({ default_ftp: value });
+              }}
+            />
+          </label>
+          <label>
+            <span>FCmax</span>
+            <input
+              type="number"
+              min="1"
+              max="250"
+              defaultValue={appConfig?.default_max_hr ?? 176}
+              onBlur={(event) => {
+                const value = Number.parseInt(event.currentTarget.value, 10);
+                if (Number.isFinite(value)) void onUpdateConfig({ default_max_hr: value });
               }}
             />
           </label>

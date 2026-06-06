@@ -94,8 +94,30 @@ export type WeeklyTss = {
   total_distance: number;
 };
 
+export type HrZoneBreakdown = {
+  key: string;
+  label: string;
+  range: string;
+  seconds: number;
+  color: string;
+};
+
+export type WeeklyHrDistribution = {
+  max_hr: number;
+  start_date: string;
+  end_date: string;
+  endurance_seconds: number;
+  quality_weighted_seconds: number;
+  quality_raw_seconds: number;
+  endurance_ratio: number;
+  quality_ratio: number;
+  zones: HrZoneBreakdown[];
+  tips: string;
+};
+
 export type AppConfig = {
   default_ftp: number;
+  default_max_hr: number;
   default_shoe_type: string | null;
   session_types: string[];
   route_locations: string[];
@@ -144,7 +166,7 @@ export function fetchConfig() {
   return request<AppConfig>("/config");
 }
 
-export function updateConfig(payload: Partial<Pick<AppConfig, "default_ftp" | "default_shoe_type">>) {
+export function updateConfig(payload: Partial<Pick<AppConfig, "default_ftp" | "default_max_hr" | "default_shoe_type">>) {
   return request<AppConfig>("/config", {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
@@ -162,6 +184,10 @@ export function addConfigOption(category: "session_type" | "route_location" | "s
 
 export function fetchWeeklyTss() {
   return request<WeeklyTss>("/training/week");
+}
+
+export function fetchWeeklyHrDistribution() {
+  return request<WeeklyHrDistribution>("/training/week-zones");
 }
 
 export function uploadFit(file: File) {

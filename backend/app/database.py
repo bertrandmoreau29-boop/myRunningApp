@@ -77,6 +77,7 @@ def _ensure_sqlite_columns() -> None:
 def _seed_defaults(connection) -> None:
     settings = {
         "default_ftp": "221",
+        "default_max_hr": "176",
         "default_shoe_type": "New Balance 860 2026 bleues",
     }
     options = {

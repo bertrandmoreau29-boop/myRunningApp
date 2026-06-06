@@ -5,7 +5,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Activity
+from app.models import Activity, AppSetting, Record
 
 
 router = APIRouter(prefix="/training", tags=["training"])
@@ -17,6 +17,13 @@ FATIGUE_DAYS = 7
 INITIAL_FITNESS = 44.0
 INITIAL_FATIGUE = 41.0
 WEEKDAY_LABELS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"]
+HR_ZONE_DEFINITIONS = [
+    {"key": "recovery", "label": "Endurance recuperation", "range": "60-75%", "min": 60, "max": 75, "color": "#4f8cc9"},
+    {"key": "active", "label": "Endurance active", "range": "76-79%", "min": 76, "max": 79, "color": "#2fa66a"},
+    {"key": "marathon", "label": "Allure marathon", "range": "80-87%", "min": 80, "max": 87, "color": "#c7a223"},
+    {"key": "threshold", "label": "Allure seuil lactique", "range": "88-92%", "min": 88, "max": 92, "color": "#d06b2d"},
+    {"key": "vo2max", "label": "Allure Vo2Max", "range": "93-100%", "min": 93, "max": 100, "color": "#cf2f2f"},
+]
 
 
 def _apply_daily_load(current: float, tss: float, time_constant_days: int) -> float:
@@ -56,6 +63,40 @@ def _daily_week_rows(db: Session, start_day: date, end_day: date) -> list[tuple[
         .group_by(func.date(Activity.started_at))
         .order_by(func.date(Activity.started_at))
     ).all()
+
+
+def _default_max_hr(db: Session) -> int:
+    setting = db.get(AppSetting, "default_max_hr")
+    if setting is None:
+        return 176
+    try:
+        return max(1, int(setting.value))
+    except ValueError:
+        return 176
+
+
+def _weekly_record_rows(db: Session, start_day: date, end_day: date) -> list[tuple[int, object, int]]:
+    return db.execute(
+        select(Record.activity_id, Record.timestamp, Record.heart_rate)
+        .join(Activity, Activity.id == Record.activity_id)
+        .where(
+            Activity.started_at.is_not(None),
+            func.date(Activity.started_at) >= start_day.isoformat(),
+            func.date(Activity.started_at) <= end_day.isoformat(),
+            Record.timestamp.is_not(None),
+            Record.heart_rate.is_not(None),
+        )
+        .order_by(Record.activity_id, Record.timestamp)
+    ).all()
+
+
+def _record_duration_seconds(current_timestamp: object, next_timestamp: object | None) -> float:
+    if next_timestamp is None or current_timestamp is None:
+        return 1.0
+    delta = (next_timestamp - current_timestamp).total_seconds()
+    if delta <= 0 or delta > 10:
+        return 1.0
+    return float(delta)
 
 
 @router.get("/metrics")
@@ -128,4 +169,75 @@ def get_weekly_tss(db: Session = Depends(get_db)) -> dict[str, object]:
         "total_tss": round(sum(day["tss"] for day in days), 1),
         "total_duration": round(sum(day["duration"] for day in days), 1),
         "total_distance": round(sum(day["distance"] for day in days), 1),
+    }
+
+
+@router.get("/week-zones")
+def get_weekly_hr_distribution(db: Session = Depends(get_db)) -> dict[str, object]:
+    today = date.today()
+    start_day = today - timedelta(days=today.weekday())
+    end_day = start_day + timedelta(days=6)
+    max_hr = _default_max_hr(db)
+    rows = _weekly_record_rows(db, start_day, end_day)
+
+    zones = {
+        definition["key"]: {**definition, "seconds": 0.0}
+        for definition in HR_ZONE_DEFINITIONS
+    }
+    endurance_seconds = 0.0
+    quality_weighted_seconds = 0.0
+    quality_raw_seconds = 0.0
+
+    for index, (activity_id, timestamp, heart_rate) in enumerate(rows):
+        next_timestamp = None
+        if index + 1 < len(rows) and rows[index + 1][0] == activity_id:
+            next_timestamp = rows[index + 1][1]
+        duration = _record_duration_seconds(timestamp, next_timestamp)
+        percent = (float(heart_rate) / max_hr) * 100
+
+        if percent < 80:
+            endurance_seconds += duration
+        elif percent <= 87:
+            quality_raw_seconds += duration
+            quality_weighted_seconds += duration * 0.5
+        else:
+            quality_raw_seconds += duration
+            quality_weighted_seconds += duration
+
+        for definition in HR_ZONE_DEFINITIONS:
+            if definition["min"] <= percent <= definition["max"]:
+                zones[definition["key"]]["seconds"] += duration
+                break
+
+    denominator = endurance_seconds + quality_weighted_seconds
+    endurance_ratio = (endurance_seconds / denominator) * 100 if denominator else 0.0
+    quality_ratio = (quality_weighted_seconds / denominator) * 100 if denominator else 0.0
+
+    zone_payload = [
+        {
+            "key": zone["key"],
+            "label": zone["label"],
+            "range": zone["range"],
+            "seconds": round(zone["seconds"], 1),
+            "color": zone["color"],
+        }
+        for zone in zones.values()
+    ]
+
+    return {
+        "max_hr": max_hr,
+        "start_date": start_day.isoformat(),
+        "end_date": end_day.isoformat(),
+        "endurance_seconds": round(endurance_seconds, 1),
+        "quality_weighted_seconds": round(quality_weighted_seconds, 1),
+        "quality_raw_seconds": round(quality_raw_seconds, 1),
+        "endurance_ratio": round(endurance_ratio, 1),
+        "quality_ratio": round(quality_ratio, 1),
+        "zones": zone_payload,
+        "tips": (
+            "Endurance: chaque point sous 80% FCM compte en endurance. "
+            "Qualite: 80-87% FCM compte avec un coefficient 0.5, "
+            "88% FCM et plus compte avec un coefficient 1. "
+            "Ratio = endurance / (endurance + qualite ponderee)."
+        ),
     }

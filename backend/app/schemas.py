@@ -73,6 +73,7 @@ class OptionRead(BaseModel):
 
 class AppConfigRead(BaseModel):
     default_ftp: int
+    default_max_hr: int
     default_shoe_type: str | None = None
     session_types: list[str]
     route_locations: list[str]
@@ -81,6 +82,7 @@ class AppConfigRead(BaseModel):
 
 class AppConfigUpdate(BaseModel):
     default_ftp: int | None = Field(default=None, ge=1, le=2000)
+    default_max_hr: int | None = Field(default=None, ge=1, le=250)
     default_shoe_type: str | None = None
 
 
