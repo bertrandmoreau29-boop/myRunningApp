@@ -8,6 +8,7 @@ export type Activity = {
   session_type: string | null;
   route_location: string | null;
   shoe_type: string | null;
+  cycle: string | null;
   comment: string | null;
   distance_manually_edited: number | null;
   started_at: string | null;
@@ -175,15 +176,18 @@ export type AppConfig = {
   default_ftp: number;
   default_max_hr: number;
   default_shoe_type: string | null;
+  default_cycle: string | null;
   session_types: string[];
   route_locations: string[];
   shoe_types: string[];
+  cycles: string[];
 };
 
 export type ActivityUpdate = Partial<{
   session_type: string | null;
   route_location: string | null;
   shoe_type: string | null;
+  cycle: string | null;
   comment: string | null;
   total_distance: number;
   threshold_power: number;
@@ -222,7 +226,9 @@ export function fetchConfig() {
   return request<AppConfig>("/config");
 }
 
-export function updateConfig(payload: Partial<Pick<AppConfig, "default_ftp" | "default_max_hr" | "default_shoe_type">>) {
+export function updateConfig(
+  payload: Partial<Pick<AppConfig, "default_ftp" | "default_max_hr" | "default_shoe_type" | "default_cycle">>,
+) {
   return request<AppConfig>("/config", {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
@@ -230,7 +236,7 @@ export function updateConfig(payload: Partial<Pick<AppConfig, "default_ftp" | "d
   });
 }
 
-export function addConfigOption(category: "session_type" | "route_location" | "shoe_type", value: string) {
+export function addConfigOption(category: "session_type" | "route_location" | "shoe_type" | "cycle", value: string) {
   return request<{ id: number; category: string; value: string }>("/config/options", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

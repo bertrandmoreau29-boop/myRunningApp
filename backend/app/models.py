@@ -16,6 +16,7 @@ class Activity(Base):
     session_type: Mapped[str | None] = mapped_column(String(160))
     route_location: Mapped[str | None] = mapped_column(String(160))
     shoe_type: Mapped[str | None] = mapped_column(String(160))
+    cycle: Mapped[str | None] = mapped_column(String(160))
     comment: Mapped[str | None] = mapped_column(Text)
     distance_manually_edited: Mapped[int | None] = mapped_column(Integer)
     started_at: Mapped[datetime | None] = mapped_column(DateTime)

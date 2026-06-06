@@ -57,6 +57,11 @@ def _default_shoe_type(db: Session) -> str | None:
     return setting.value if setting and setting.value else None
 
 
+def _default_cycle(db: Session) -> str | None:
+    setting = db.get(AppSetting, "default_cycle")
+    return setting.value if setting and setting.value else None
+
+
 def _previous_threshold_power(db: Session, started_at: object) -> int | None:
     if started_at is not None:
         previous_by_date = db.scalar(
@@ -97,6 +102,7 @@ def _create_activity_from_fit(path: Path, original_filename: str, db: Session) -
         )
 
     parsed["summary"]["shoe_type"] = _default_shoe_type(db)
+    parsed["summary"]["cycle"] = _default_cycle(db)
     activity = Activity(filename=original_filename, **parsed["summary"])
     db.add(activity)
     db.flush()
@@ -209,7 +215,7 @@ def update_activity(activity_id: int, payload: ActivityUpdate, db: Session = Dep
     if activity is None:
         raise HTTPException(status_code=404, detail="Activite introuvable")
 
-    for field in ("session_type", "route_location", "shoe_type", "comment"):
+    for field in ("session_type", "route_location", "shoe_type", "cycle", "comment"):
         value = getattr(payload, field)
         if value is not None:
             setattr(activity, field, value.strip() if isinstance(value, str) else value)

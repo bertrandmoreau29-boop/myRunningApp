@@ -13,6 +13,7 @@ OPTION_CATEGORIES = {
     "session_type": "session_types",
     "route_location": "route_locations",
     "shoe_type": "shoe_types",
+    "cycle": "cycles",
 }
 
 
@@ -45,9 +46,11 @@ def get_config(db: Session = Depends(get_db)) -> AppConfigRead:
         default_ftp=int(_setting(db, "default_ftp", "221")),
         default_max_hr=int(_setting(db, "default_max_hr", "176")),
         default_shoe_type=_setting(db, "default_shoe_type", ""),
+        default_cycle=_setting(db, "default_cycle", "Prepa_marathon_Lille_2026"),
         session_types=_options(db, "session_type"),
         route_locations=_options(db, "route_location"),
         shoe_types=_options(db, "shoe_type"),
+        cycles=_options(db, "cycle"),
     )
 
 
@@ -59,6 +62,8 @@ def update_config(payload: AppConfigUpdate, db: Session = Depends(get_db)) -> Ap
         _set_setting(db, "default_max_hr", str(payload.default_max_hr))
     if payload.default_shoe_type is not None:
         _set_setting(db, "default_shoe_type", payload.default_shoe_type)
+    if payload.default_cycle is not None:
+        _set_setting(db, "default_cycle", payload.default_cycle)
     db.commit()
     return get_config(db)
 

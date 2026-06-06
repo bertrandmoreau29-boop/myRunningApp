@@ -39,6 +39,7 @@ def _ensure_sqlite_columns() -> None:
             "session_type": "VARCHAR(160)",
             "route_location": "VARCHAR(160)",
             "shoe_type": "VARCHAR(160)",
+            "cycle": "VARCHAR(160)",
             "comment": "TEXT",
             "distance_manually_edited": "INTEGER",
             "avg_power": "INTEGER",
@@ -79,6 +80,7 @@ def _seed_defaults(connection) -> None:
         "default_ftp": "221",
         "default_max_hr": "176",
         "default_shoe_type": "New Balance 860 2026 bleues",
+        "default_cycle": "Prepa_marathon_Lille_2026",
     }
     options = {
         "session_type": [
@@ -95,6 +97,11 @@ def _seed_defaults(connection) -> None:
         ],
         "shoe_type": [
             "New Balance 860 2026 bleues",
+        ],
+        "cycle": [
+            "Intercyle",
+            "Prepa_marathon_Lille_2026",
+            "Prepra_Marathon_Saumur_2026",
         ],
     }
 

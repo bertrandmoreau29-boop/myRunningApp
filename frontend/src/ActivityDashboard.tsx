@@ -218,7 +218,7 @@ export function ActivityDashboard() {
     }
   }
 
-  async function handleAddOption(category: "session_type" | "route_location" | "shoe_type") {
+  async function handleAddOption(category: "session_type" | "route_location" | "shoe_type" | "cycle") {
     const value = window.prompt("Nouvelle valeur");
     if (!value?.trim()) return;
     setError(null);
@@ -440,8 +440,10 @@ function DashboardContent({
   appConfig: AppConfig | null;
   editingDistanceId: number | null;
   handleActivityUpdate: (activity: Activity, payload: Parameters<typeof updateActivity>[1]) => Promise<void>;
-  onAddOption: (category: "session_type" | "route_location" | "shoe_type") => Promise<void>;
-  onUpdateConfig: (payload: Partial<Pick<AppConfig, "default_ftp" | "default_max_hr" | "default_shoe_type">>) => Promise<void>;
+  onAddOption: (category: "session_type" | "route_location" | "shoe_type" | "cycle") => Promise<void>;
+  onUpdateConfig: (
+    payload: Partial<Pick<AppConfig, "default_ftp" | "default_max_hr" | "default_shoe_type" | "default_cycle">>,
+  ) => Promise<void>;
   setEditingDistanceId: (id: number | null) => void;
 }) {
   return (
@@ -499,6 +501,20 @@ function DashboardContent({
               {(appConfig?.shoe_types ?? []).map((shoe) => (
                 <option key={shoe} value={shoe}>
                   {shoe}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>Cycle par defaut</span>
+            <select
+              value={appConfig?.default_cycle ?? ""}
+              onChange={(event) => void onUpdateConfig({ default_cycle: event.currentTarget.value })}
+            >
+              <option value="">-</option>
+              {(appConfig?.cycles ?? []).map((cycle) => (
+                <option key={cycle} value={cycle}>
+                  {cycle}
                 </option>
               ))}
             </select>
@@ -599,6 +615,7 @@ function DashboardContent({
                       <th>Distance</th>
                       <th>Duree</th>
                       <th>Type de seance</th>
+                      <th>Cycle</th>
                       <th>Lieu/parcours</th>
                       <th>Allure</th>
                       <th>FC moy.</th>
@@ -640,6 +657,14 @@ function DashboardContent({
                             options={appConfig?.session_types ?? []}
                             onAdd={() => void onAddOption("session_type")}
                             onChange={(value) => void handleActivityUpdate(activity, { session_type: value })}
+                          />
+                        </td>
+                        <td>
+                          <EditableSelect
+                            value={activity.cycle}
+                            options={appConfig?.cycles ?? []}
+                            onAdd={() => void onAddOption("cycle")}
+                            onChange={(value) => void handleActivityUpdate(activity, { cycle: value })}
                           />
                         </td>
                         <td>
@@ -941,9 +966,11 @@ function ConfigPage({
   onUpdateConfig,
 }: {
   appConfig: AppConfig | null;
-  onAddOption: (category: "session_type" | "route_location" | "shoe_type") => Promise<void>;
+  onAddOption: (category: "session_type" | "route_location" | "shoe_type" | "cycle") => Promise<void>;
   onRefresh: () => Promise<void>;
-  onUpdateConfig: (payload: Partial<Pick<AppConfig, "default_ftp" | "default_max_hr" | "default_shoe_type">>) => Promise<void>;
+  onUpdateConfig: (
+    payload: Partial<Pick<AppConfig, "default_ftp" | "default_max_hr" | "default_shoe_type" | "default_cycle">>,
+  ) => Promise<void>;
 }) {
   return (
     <section className="config-page">
@@ -996,6 +1023,20 @@ function ConfigPage({
               ))}
             </select>
           </label>
+          <label>
+            <span>Cycle par defaut</span>
+            <select
+              value={appConfig?.default_cycle ?? ""}
+              onChange={(event) => void onUpdateConfig({ default_cycle: event.currentTarget.value })}
+            >
+              <option value="">-</option>
+              {(appConfig?.cycles ?? []).map((cycle) => (
+                <option key={cycle} value={cycle}>
+                  {cycle}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
       </div>
 
@@ -1013,6 +1054,11 @@ function ConfigPage({
         title="Chaussures"
         values={appConfig?.shoe_types ?? []}
         onAdd={() => void onAddOption("shoe_type")}
+      />
+      <OptionPanel
+        title="Cycles"
+        values={appConfig?.cycles ?? []}
+        onAdd={() => void onAddOption("cycle")}
       />
     </section>
   );

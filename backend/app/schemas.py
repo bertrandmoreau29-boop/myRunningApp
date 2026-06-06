@@ -14,6 +14,7 @@ class ActivitySummary(BaseModel):
     session_type: str | None = None
     route_location: str | None = None
     shoe_type: str | None = None
+    cycle: str | None = None
     comment: str | None = None
     distance_manually_edited: int | None = None
     started_at: datetime | None = None
@@ -53,6 +54,7 @@ class ActivityUpdate(BaseModel):
     session_type: str | None = None
     route_location: str | None = None
     shoe_type: str | None = None
+    cycle: str | None = None
     comment: str | None = None
     total_distance: float | None = Field(default=None, ge=0)
     threshold_power: int | None = Field(default=None, ge=1, le=2000)
@@ -75,15 +77,18 @@ class AppConfigRead(BaseModel):
     default_ftp: int
     default_max_hr: int
     default_shoe_type: str | None = None
+    default_cycle: str | None = None
     session_types: list[str]
     route_locations: list[str]
     shoe_types: list[str]
+    cycles: list[str]
 
 
 class AppConfigUpdate(BaseModel):
     default_ftp: int | None = Field(default=None, ge=1, le=2000)
     default_max_hr: int | None = Field(default=None, ge=1, le=250)
     default_shoe_type: str | None = None
+    default_cycle: str | None = None
 
 
 class LapRead(BaseModel):
