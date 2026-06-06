@@ -110,6 +110,17 @@ def _seed_defaults(connection) -> None:
         if not exists:
             connection.execute(text("INSERT INTO app_settings(key, value) VALUES (:key, :value)"), {"key": key, "value": value})
 
+    default_cycle = settings["default_cycle"]
+    configured_cycle = connection.execute(
+        text("SELECT value FROM app_settings WHERE key = 'default_cycle'")
+    ).fetchone()
+    if configured_cycle and configured_cycle[0]:
+        default_cycle = configured_cycle[0]
+    connection.execute(
+        text("UPDATE activities SET cycle = :cycle WHERE cycle IS NULL OR TRIM(cycle) = ''"),
+        {"cycle": default_cycle},
+    )
+
     for category, values in options.items():
         for value in values:
             exists = connection.execute(

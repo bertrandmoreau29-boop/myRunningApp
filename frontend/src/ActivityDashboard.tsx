@@ -661,7 +661,7 @@ function DashboardContent({
                         </td>
                         <td>
                           <EditableSelect
-                            value={activity.cycle}
+                            value={activity.cycle ?? appConfig?.default_cycle ?? null}
                             options={appConfig?.cycles ?? []}
                             onAdd={() => void onAddOption("cycle")}
                             onChange={(value) => void handleActivityUpdate(activity, { cycle: value })}
