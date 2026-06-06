@@ -17,6 +17,7 @@ import {
   Lap,
   RecordPoint,
   TrainingCalendar,
+  TrainingFractions,
   TrainingMetrics,
   WeeklyHrDistribution,
   WeeklyTss,
@@ -27,6 +28,7 @@ import {
   fetchLaps,
   fetchRecords,
   fetchTrainingCalendar,
+  fetchTrainingFractions,
   fetchTrainingMetrics,
   fetchWeeklyHrDistribution,
   fetchWeeklyTss,
@@ -55,7 +57,7 @@ type DetailState = {
 
 const emptyDetail: DetailState = { activity: null, laps: [], records: [] };
 type WeeklyMetric = "tss" | "duration" | "distance";
-type Page = "dashboard" | "charts" | "calendar" | "config";
+type Page = "dashboard" | "charts" | "calendar" | "fractions" | "config";
 
 type EfPoint = {
   date: Date;
@@ -70,6 +72,7 @@ export function ActivityDashboard() {
   const [weeklyTss, setWeeklyTss] = useState<WeeklyTss | null>(null);
   const [weeklyHrDistribution, setWeeklyHrDistribution] = useState<WeeklyHrDistribution | null>(null);
   const [trainingCalendar, setTrainingCalendar] = useState<TrainingCalendar | null>(null);
+  const [trainingFractions, setTrainingFractions] = useState<TrainingFractions | null>(null);
   const [appConfig, setAppConfig] = useState<AppConfig | null>(null);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [detail, setDetail] = useState<DetailState>(emptyDetail);
@@ -100,16 +103,18 @@ export function ActivityDashboard() {
 
   async function loadTrainingMetrics() {
     try {
-      const [metrics, week, hrDistribution, calendar] = await Promise.all([
+      const [metrics, week, hrDistribution, calendar, fractions] = await Promise.all([
         fetchTrainingMetrics(),
         fetchWeeklyTss(),
         fetchWeeklyHrDistribution(),
         fetchTrainingCalendar(),
+        fetchTrainingFractions(),
       ]);
       setTrainingMetrics(metrics);
       setWeeklyTss(week);
       setWeeklyHrDistribution(hrDistribution);
       setTrainingCalendar(calendar);
+      setTrainingFractions(fractions);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Erreur inconnue");
     }
@@ -313,6 +318,9 @@ export function ActivityDashboard() {
         <button className={page === "calendar" ? "selected" : ""} type="button" onClick={() => setPage("calendar")}>
           Calendrier
         </button>
+        <button className={page === "fractions" ? "selected" : ""} type="button" onClick={() => setPage("fractions")}>
+          Fractions
+        </button>
         <button className={page === "config" ? "selected" : ""} type="button" onClick={() => setPage("config")}>
           Configuration
         </button>
@@ -324,6 +332,8 @@ export function ActivityDashboard() {
         <ChartsPage efSeries={efSeries} />
       ) : page === "calendar" ? (
         <CalendarPage calendar={trainingCalendar} />
+      ) : page === "fractions" ? (
+        <FractionsPage fractions={trainingFractions} />
       ) : page === "config" ? (
         <ConfigPage
           appConfig={appConfig}
@@ -1123,6 +1133,89 @@ function CalendarWeekCard({
           <strong>{projection.resultingForm.toFixed(1)}</strong>
         </div>
       </div>
+    </article>
+  );
+}
+
+function FractionsPage({ fractions }: { fractions: TrainingFractions | null }) {
+  if (!fractions) {
+    return (
+      <section className="fractions-page">
+        <p className="empty-state">Chargement des fractions...</p>
+      </section>
+    );
+  }
+
+  return (
+    <section className="fractions-page">
+      <div className="fractions-title">
+        <div>
+          <h2>Fractions</h2>
+          <p>Regroupement des tours par zone cardiaque, avec FCmax {fractions.max_hr} bpm.</p>
+        </div>
+      </div>
+      <div className="fraction-groups">
+        {fractions.groups.map((group) => (
+          <FractionGroupTable key={group.key} group={group} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function FractionGroupTable({ group }: { group: TrainingFractions["groups"][number] }) {
+  return (
+    <article className="panel fraction-panel">
+      <div className="panel-header">
+        <h2>{group.title}</h2>
+        <span>{group.rows.length} fraction{group.rows.length > 1 ? "s" : ""}</span>
+      </div>
+      {group.rows.length === 0 ? (
+        <p className="empty-state">Aucune fraction detectee.</p>
+      ) : (
+        <div className="table-scroll fractions-table">
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Seance</th>
+                <th>Lieu</th>
+                <th>Tour</th>
+                <th>Distance</th>
+                <th>Duree</th>
+                <th>Allure</th>
+                <th>FC moy.</th>
+                <th>FC max</th>
+                <th>Puissance</th>
+                <th>Puiss. norm.</th>
+                <th>EF fraction</th>
+                <th>Cadence</th>
+                <th>Contact sol</th>
+              </tr>
+            </thead>
+            <tbody>
+              {group.rows.map((row) => (
+                <tr key={row.lap_id}>
+                  <td>{formatDate(row.date)}</td>
+                  <td>{row.session_type || "-"}</td>
+                  <td>{row.route_location || "-"}</td>
+                  <td>{row.lap_index}</td>
+                  <td>{formatDistance(row.total_distance)}</td>
+                  <td>{formatDuration(row.total_timer_time)}</td>
+                  <td>{formatPace(row.avg_speed)}</td>
+                  <td>{formatNumber(row.avg_heart_rate, " bpm")}</td>
+                  <td>{formatNumber(row.max_heart_rate, " bpm")}</td>
+                  <td>{formatNumber(row.avg_power, " W")}</td>
+                  <td>{formatNumber(row.normalized_power, " W")}</td>
+                  <td>{formatDecimal(row.efficiency_factor, 2)}</td>
+                  <td>{formatCadence(row.avg_cadence)}</td>
+                  <td>{formatMilliseconds(row.avg_ground_contact_time)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </article>
   );
 }

@@ -5,7 +5,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Activity, AppSetting, Record
+from app.models import Activity, AppSetting, Lap, Record
 
 
 router = APIRouter(prefix="/training", tags=["training"])
@@ -148,6 +148,45 @@ def _record_duration_seconds(current_timestamp: object, next_timestamp: object |
     return float(delta)
 
 
+def _lap_efficiency_factor(lap: object) -> float | None:
+    if not lap.avg_heart_rate:
+        return None
+    power = lap.normalized_power or lap.avg_power
+    if power is None:
+        return None
+    return float(power) / float(lap.avg_heart_rate)
+
+
+def _fraction_row(activity: Activity, lap: object, fraction_type: str) -> dict[str, object]:
+    return {
+        "activity_id": activity.id,
+        "lap_id": lap.id,
+        "fraction_type": fraction_type,
+        "date": activity.started_at.isoformat() if activity.started_at else None,
+        "session_type": activity.session_type,
+        "route_location": activity.route_location,
+        "lap_index": lap.lap_index,
+        "total_elapsed_time": lap.total_elapsed_time,
+        "total_timer_time": lap.total_timer_time,
+        "total_distance": lap.total_distance,
+        "avg_speed": lap.avg_speed,
+        "max_speed": lap.max_speed,
+        "avg_heart_rate": lap.avg_heart_rate,
+        "max_heart_rate": lap.max_heart_rate,
+        "avg_cadence": lap.avg_cadence,
+        "max_cadence": lap.max_cadence,
+        "avg_power": lap.avg_power,
+        "max_power": lap.max_power,
+        "normalized_power": lap.normalized_power,
+        "avg_ground_contact_time": lap.avg_ground_contact_time,
+        "efficiency_factor": _lap_efficiency_factor(lap),
+    }
+
+
+def _fraction_group(title: str, key: str, rows: list[dict[str, object]]) -> dict[str, object]:
+    return {"key": key, "title": title, "rows": rows}
+
+
 @router.get("/metrics")
 def get_training_metrics(db: Session = Depends(get_db)) -> dict[str, float]:
     today = date.today()
@@ -271,6 +310,42 @@ def get_training_calendar(db: Session = Depends(get_db)) -> dict[str, object]:
         "fatigue_days": FATIGUE_DAYS,
         "weeks": weeks,
     }
+
+
+@router.get("/fractions")
+def get_training_fractions(db: Session = Depends(get_db)) -> dict[str, object]:
+    max_hr = _default_max_hr(db)
+    threshold_rows: list[dict[str, object]] = []
+    marathon_rows: list[dict[str, object]] = []
+    vo2_rows_by_duration: dict[int, list[dict[str, object]]] = {}
+
+    rows = db.execute(
+        select(Activity, Lap)
+        .join(Lap, Lap.activity_id == Activity.id)
+        .where(Lap.avg_heart_rate.is_not(None))
+        .order_by(Activity.started_at.asc().nullslast(), Activity.created_at.asc(), Lap.lap_index.asc())
+    ).all()
+
+    for activity, lap in rows:
+        percent = (float(lap.avg_heart_rate) / max_hr) * 100
+        if 83 <= percent <= 87:
+            marathon_rows.append(_fraction_row(activity, lap, "marathon"))
+        elif 88 <= percent <= 92:
+            threshold_rows.append(_fraction_row(activity, lap, "threshold"))
+        elif 93 <= percent <= 100:
+            duration_minutes = max(1, round(float(lap.total_timer_time or lap.total_elapsed_time or 0) / 60))
+            vo2_rows_by_duration.setdefault(duration_minutes, []).append(_fraction_row(activity, lap, "vo2max"))
+
+    groups = [
+        _fraction_group("Seuils", "threshold", threshold_rows),
+        _fraction_group("Allure marathon", "marathon", marathon_rows),
+    ]
+    groups.extend(
+        _fraction_group(f"VO2Max - {duration} min", f"vo2max-{duration}", vo2_rows_by_duration[duration])
+        for duration in sorted(vo2_rows_by_duration)
+    )
+
+    return {"max_hr": max_hr, "groups": groups}
 
 
 @router.get("/week-zones")

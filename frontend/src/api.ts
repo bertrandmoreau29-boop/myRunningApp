@@ -136,6 +136,41 @@ export type TrainingCalendar = {
   weeks: CalendarWeek[];
 };
 
+export type FractionRow = {
+  activity_id: number;
+  lap_id: number;
+  fraction_type: string;
+  date: string | null;
+  session_type: string | null;
+  route_location: string | null;
+  lap_index: number;
+  total_elapsed_time: number | null;
+  total_timer_time: number | null;
+  total_distance: number | null;
+  avg_speed: number | null;
+  max_speed: number | null;
+  avg_heart_rate: number | null;
+  max_heart_rate: number | null;
+  avg_cadence: number | null;
+  max_cadence: number | null;
+  avg_power: number | null;
+  max_power: number | null;
+  normalized_power: number | null;
+  avg_ground_contact_time: number | null;
+  efficiency_factor: number | null;
+};
+
+export type FractionGroup = {
+  key: string;
+  title: string;
+  rows: FractionRow[];
+};
+
+export type TrainingFractions = {
+  max_hr: number;
+  groups: FractionGroup[];
+};
+
 export type AppConfig = {
   default_ftp: number;
   default_max_hr: number;
@@ -213,6 +248,10 @@ export function fetchWeeklyHrDistribution() {
 
 export function fetchTrainingCalendar() {
   return request<TrainingCalendar>("/training/calendar");
+}
+
+export function fetchTrainingFractions() {
+  return request<TrainingFractions>("/training/fractions");
 }
 
 export function uploadFit(file: File) {

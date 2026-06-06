@@ -563,6 +563,11 @@ tbody tr.selected {
   max-width: 1500px;
 }
 
+.fractions-page {
+  margin: 0 auto;
+  max-width: 1500px;
+}
+
 .calendar-title {
   align-items: center;
   display: flex;
@@ -582,6 +587,36 @@ tbody tr.selected {
 
 .calendar-title svg {
   color: #226b45;
+}
+
+.fractions-title {
+  margin-bottom: 16px;
+}
+
+.fractions-title h2 {
+  font-size: 24px;
+}
+
+.fractions-title p {
+  color: #66736b;
+  margin-top: 4px;
+}
+
+.fraction-groups {
+  display: grid;
+  gap: 14px;
+}
+
+.fraction-panel {
+  padding: 14px;
+}
+
+.fractions-table table {
+  min-width: 1180px;
+}
+
+.fraction-panel tbody tr {
+  cursor: default;
 }
 
 .calendar-grid {
