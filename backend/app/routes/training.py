@@ -187,6 +187,19 @@ def _fraction_group(title: str, key: str, rows: list[dict[str, object]]) -> dict
     return {"key": key, "title": title, "rows": rows}
 
 
+def _fraction_type_from_session_type(session_type: str | None) -> str | None:
+    if not session_type:
+        return None
+    normalized = session_type.strip().lower()
+    if "seuil" in normalized:
+        return "threshold"
+    if "marathon" in normalized or "allure m" in normalized:
+        return "marathon"
+    if "vo2" in normalized or "vma" in normalized:
+        return "vo2max"
+    return None
+
+
 @router.get("/metrics")
 def get_training_metrics(db: Session = Depends(get_db)) -> dict[str, float]:
     today = date.today()
@@ -322,18 +335,20 @@ def get_training_fractions(db: Session = Depends(get_db)) -> dict[str, object]:
     rows = db.execute(
         select(Activity, Lap)
         .join(Lap, Lap.activity_id == Activity.id)
-        .where(Lap.avg_heart_rate.is_not(None))
         .order_by(Activity.started_at.asc().nullslast(), Activity.created_at.asc(), Lap.lap_index.asc())
     ).all()
 
     for activity, lap in rows:
-        percent = (float(lap.avg_heart_rate) / max_hr) * 100
-        if 83 <= percent <= 87:
+        fraction_type = _fraction_type_from_session_type(activity.session_type)
+        if fraction_type == "marathon":
             marathon_rows.append(_fraction_row(activity, lap, "marathon"))
-        elif 88 <= percent <= 92:
+        elif fraction_type == "threshold":
             threshold_rows.append(_fraction_row(activity, lap, "threshold"))
-        elif 93 <= percent <= 100:
-            duration_minutes = max(1, round(float(lap.total_timer_time or lap.total_elapsed_time or 0) / 60))
+        elif fraction_type == "vo2max":
+            duration_seconds = float(lap.total_timer_time or lap.total_elapsed_time or 0)
+            if duration_seconds > 6 * 60:
+                continue
+            duration_minutes = max(1, round(duration_seconds / 60))
             vo2_rows_by_duration.setdefault(duration_minutes, []).append(_fraction_row(activity, lap, "vo2max"))
 
     groups = [
