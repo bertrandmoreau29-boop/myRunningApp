@@ -148,7 +148,7 @@ h1 {
   align-items: stretch;
   display: grid;
   gap: 14px;
-  grid-template-columns: 220px 118px minmax(640px, 1fr) 560px;
+  grid-template-columns: 280px 110px minmax(500px, 620px) 520px;
   justify-content: center;
   margin: 0 auto 18px;
   max-width: 1840px;
@@ -266,35 +266,6 @@ h1 {
   color: #66736b;
   font-size: 12px;
   font-weight: 700;
-}
-
-.weekly-selected-activity {
-  border-top: 1px solid #e5ece7;
-  display: grid;
-  gap: 8px;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  margin-top: 12px;
-  padding-top: 10px;
-}
-
-.weekly-selected-activity div {
-  display: grid;
-  gap: 3px;
-}
-
-.weekly-selected-activity span {
-  color: #66736b;
-  font-size: 11px;
-  font-weight: 800;
-  text-transform: uppercase;
-}
-
-.weekly-selected-activity strong {
-  color: #17201b;
-  font-size: 12px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .training-metric {
@@ -539,8 +510,20 @@ td {
   min-width: 150px;
 }
 
+.cycle-select {
+  background: #ffffff;
+  border: 1px solid #cbd7ce;
+  border-radius: 6px;
+  color: #17201b;
+  font-weight: 800;
+  height: 30px;
+  min-width: 64px;
+  width: 72px;
+}
+
 .distance-input,
 .ftp-input,
+.cycle-select,
 .editable-select select,
 .config-grid input,
 .config-grid select,
@@ -557,6 +540,7 @@ td {
 
 .distance-input:focus,
 .ftp-input:focus,
+.cycle-select:focus,
 .editable-select select:focus,
 .config-grid input:focus,
 .config-grid select:focus,
@@ -911,6 +895,13 @@ tbody tr.selected {
   font-weight: 700;
 }
 
+.cycle-current-abbr {
+  color: #226b45;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
 .config-grid input,
 .config-grid select,
 .side-config input,
@@ -1151,10 +1142,25 @@ tbody tr.selected {
 }
 
 .option-list li {
+  align-items: center;
   background: #f8faf8;
   border: 1px solid #e5ece7;
   border-radius: 6px;
+  display: flex;
+  gap: 8px;
   padding: 8px 10px;
+}
+
+.option-list li strong {
+  color: #226b45;
+  min-width: 36px;
+}
+
+.option-list li span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .chart-panel {
@@ -1311,7 +1317,6 @@ tbody tr.selected {
     gap: 8px;
   }
 
-  .weekly-selected-activity,
   .quality-layout {
     grid-template-columns: 1fr;
   }

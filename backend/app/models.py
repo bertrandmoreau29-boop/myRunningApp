@@ -104,3 +104,4 @@ class OptionValue(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     category: Mapped[str] = mapped_column(String(80), index=True, nullable=False)
     value: Mapped[str] = mapped_column(String(200), nullable=False)
+    abbreviation: Mapped[str | None] = mapped_column(String(16))

@@ -61,6 +61,9 @@ def _ensure_sqlite_columns() -> None:
             "power": "INTEGER",
             "ground_contact_time": "FLOAT",
         },
+        "option_values": {
+            "abbreviation": "VARCHAR(16)",
+        },
     }
 
     with engine.begin() as connection:
@@ -104,6 +107,13 @@ def _seed_defaults(connection) -> None:
             "Prepra_Marathon_Saumur_2026",
         ],
     }
+    option_abbreviations = {
+        "cycle": {
+            "Intercyle": "INT",
+            "Prepa_marathon_Lille_2026": "L26",
+            "Prepra_Marathon_Saumur_2026": "S26",
+        },
+    }
 
     for key, value in settings.items():
         exists = connection.execute(text("SELECT 1 FROM app_settings WHERE key = :key"), {"key": key}).fetchone()
@@ -123,12 +133,21 @@ def _seed_defaults(connection) -> None:
 
     for category, values in options.items():
         for value in values:
+            abbreviation = option_abbreviations.get(category, {}).get(value)
             exists = connection.execute(
                 text("SELECT 1 FROM option_values WHERE category = :category AND value = :value"),
                 {"category": category, "value": value},
             ).fetchone()
             if not exists:
                 connection.execute(
-                    text("INSERT INTO option_values(category, value) VALUES (:category, :value)"),
-                    {"category": category, "value": value},
+                    text("INSERT INTO option_values(category, value, abbreviation) VALUES (:category, :value, :abbreviation)"),
+                    {"category": category, "value": value, "abbreviation": abbreviation},
+                )
+            elif abbreviation:
+                connection.execute(
+                    text(
+                        "UPDATE option_values SET abbreviation = :abbreviation "
+                        "WHERE category = :category AND value = :value AND (abbreviation IS NULL OR TRIM(abbreviation) = '')"
+                    ),
+                    {"category": category, "value": value, "abbreviation": abbreviation},
                 )

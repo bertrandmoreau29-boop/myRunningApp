@@ -66,6 +66,11 @@ type EfPoint = {
   rollingValue: number;
 };
 
+function cycleAbbreviation(appConfig: AppConfig | null, value: string | null | undefined) {
+  if (!value) return "-";
+  return appConfig?.cycles.find((cycle) => cycle.value === value)?.abbreviation ?? value.slice(0, 3).toUpperCase();
+}
+
 export function ActivityDashboard() {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [trainingMetrics, setTrainingMetrics] = useState<TrainingMetrics | null>(null);
@@ -221,9 +226,11 @@ export function ActivityDashboard() {
   async function handleAddOption(category: "session_type" | "route_location" | "shoe_type" | "cycle") {
     const value = window.prompt("Nouvelle valeur");
     if (!value?.trim()) return;
+    const abbreviation = category === "cycle" ? window.prompt("Abreviation du cycle (3 lettres)") : undefined;
+    if (category === "cycle" && !abbreviation?.trim()) return;
     setError(null);
     try {
-      await addConfigOption(category, value.trim());
+      await addConfigOption(category, value.trim(), abbreviation?.trim());
       await loadConfig();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Erreur inconnue");
@@ -524,18 +531,21 @@ function DashboardContent({
             </select>
           </label>
           <label>
-            <span>Cycle par defaut</span>
+            <span>Cycle en cours</span>
             <select
               value={appConfig?.default_cycle ?? ""}
               onChange={(event) => void onUpdateConfig({ default_cycle: event.currentTarget.value })}
             >
               <option value="">-</option>
               {(appConfig?.cycles ?? []).map((cycle) => (
-                <option key={cycle} value={cycle}>
-                  {cycle}
+                <option key={cycle.value} value={cycle.value}>
+                  {cycle.value}
                 </option>
               ))}
             </select>
+            <small className="cycle-current-abbr">
+              {appConfig?.default_cycle ?? "-"} / {cycleAbbreviation(appConfig, appConfig?.default_cycle)}
+            </small>
           </label>
         </div>
 
@@ -598,7 +608,6 @@ function DashboardContent({
               );
             })}
           </div>
-          {detail.activity && <WeeklySelectedActivity activity={detail.activity} />}
         </div>
 
         <EnduranceQualityWidget distribution={weeklyHrDistribution} />
@@ -645,11 +654,11 @@ function DashboardContent({
                 <table>
                   <thead>
                     <tr>
+                      <th>Cycle</th>
                       <th>Date</th>
                       <th>Distance</th>
                       <th>Duree</th>
                       <th>Type de seance</th>
-                      <th>Cycle</th>
                       <th>Commentaire</th>
                       <th>Lieu/parcours</th>
                       <th>Allure</th>
@@ -673,6 +682,13 @@ function DashboardContent({
                         className={activity.id === selectedId ? "selected" : ""}
                         onClick={() => setSelectedId(activity.id)}
                       >
+                        <td>
+                          <CycleSelect
+                            appConfig={appConfig}
+                            value={activity.cycle ?? appConfig?.default_cycle ?? null}
+                            onChange={(value) => void handleActivityUpdate(activity, { cycle: value })}
+                          />
+                        </td>
                         <td>{formatDate(activity.started_at)}</td>
                         <td>
                           <DistanceCell
@@ -692,14 +708,6 @@ function DashboardContent({
                             options={appConfig?.session_types ?? []}
                             onAdd={() => void onAddOption("session_type")}
                             onChange={(value) => void handleActivityUpdate(activity, { session_type: value })}
-                          />
-                        </td>
-                        <td>
-                          <EditableSelect
-                            value={activity.cycle ?? appConfig?.default_cycle ?? null}
-                            options={appConfig?.cycles ?? []}
-                            onAdd={() => void onAddOption("cycle")}
-                            onChange={(value) => void handleActivityUpdate(activity, { cycle: value })}
                           />
                         </td>
                         <td>
@@ -882,41 +890,6 @@ function DashboardContent({
   );
 }
 
-function WeeklySelectedActivity({ activity }: { activity: Activity }) {
-  return (
-    <div className="weekly-selected-activity">
-      <div>
-        <span>Seance selectionnee</span>
-        <strong>{formatDate(activity.started_at)}</strong>
-      </div>
-      <div>
-        <span>Distance</span>
-        <strong>{formatDistance(activity.total_distance)}</strong>
-      </div>
-      <div>
-        <span>Duree</span>
-        <strong>{formatDuration(activity.total_timer_time)}</strong>
-      </div>
-      <div>
-        <span>Allure</span>
-        <strong>{formatPace(activity.avg_speed)}</strong>
-      </div>
-      <div>
-        <span>FC</span>
-        <strong>{formatNumber(activity.avg_heart_rate, " bpm")}</strong>
-      </div>
-      <div>
-        <span>Puissance</span>
-        <strong>{formatNumber(activity.avg_power, " W")}</strong>
-      </div>
-      <div>
-        <span>TSS</span>
-        <strong>{formatDecimal(activity.training_stress_score, 1)}</strong>
-      </div>
-    </div>
-  );
-}
-
 function HrScaleWidget({ maxHr }: { maxHr: number }) {
   const ticks = [95, 90, 85, 80, 75, 70, 65];
 
@@ -1016,6 +989,33 @@ function EditableSelect({
         +
       </button>
     </div>
+  );
+}
+
+function CycleSelect({
+  appConfig,
+  value,
+  onChange,
+}: {
+  appConfig: AppConfig | null;
+  value: string | null;
+  onChange: (value: string | null) => void;
+}) {
+  return (
+    <select
+      className="cycle-select"
+      onChange={(event) => onChange(event.currentTarget.value || null)}
+      onClick={(event) => event.stopPropagation()}
+      title={value ?? ""}
+      value={value ?? ""}
+    >
+      <option value="">-</option>
+      {(appConfig?.cycles ?? []).map((cycle) => (
+        <option key={cycle.value} value={cycle.value}>
+          {cycle.abbreviation}
+        </option>
+      ))}
+    </select>
   );
 }
 
@@ -1124,18 +1124,21 @@ function ConfigPage({
             </select>
           </label>
           <label>
-            <span>Cycle par defaut</span>
+            <span>Cycle en cours</span>
             <select
               value={appConfig?.default_cycle ?? ""}
               onChange={(event) => void onUpdateConfig({ default_cycle: event.currentTarget.value })}
             >
               <option value="">-</option>
               {(appConfig?.cycles ?? []).map((cycle) => (
-                <option key={cycle} value={cycle}>
-                  {cycle}
+                <option key={cycle.value} value={cycle.value}>
+                  {cycle.value}
                 </option>
               ))}
             </select>
+            <small className="cycle-current-abbr">
+              {appConfig?.default_cycle ?? "-"} / {cycleAbbreviation(appConfig, appConfig?.default_cycle)}
+            </small>
           </label>
         </div>
       </div>
@@ -1155,7 +1158,7 @@ function ConfigPage({
         values={appConfig?.shoe_types ?? []}
         onAdd={() => void onAddOption("shoe_type")}
       />
-      <OptionPanel
+      <CycleOptionPanel
         title="Cycles"
         values={appConfig?.cycles ?? []}
         onAdd={() => void onAddOption("cycle")}
@@ -1176,6 +1179,35 @@ function OptionPanel({ title, values, onAdd }: { title: string; values: string[]
       <ul className="option-list">
         {values.map((value) => (
           <li key={value}>{value}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function CycleOptionPanel({
+  title,
+  values,
+  onAdd,
+}: {
+  title: string;
+  values: AppConfig["cycles"];
+  onAdd: () => void;
+}) {
+  return (
+    <div className="panel config-panel">
+      <div className="panel-header">
+        <h2>{title}</h2>
+        <button className="add-button" type="button" onClick={onAdd}>
+          Ajouter
+        </button>
+      </div>
+      <ul className="option-list">
+        {values.map((cycle) => (
+          <li key={cycle.value}>
+            <strong>{cycle.abbreviation}</strong>
+            <span>{cycle.value}</span>
+          </li>
         ))}
       </ul>
     </div>

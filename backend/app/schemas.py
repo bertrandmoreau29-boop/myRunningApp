@@ -63,6 +63,7 @@ class ActivityUpdate(BaseModel):
 class OptionCreate(BaseModel):
     category: str
     value: str = Field(min_length=1, max_length=200)
+    abbreviation: str | None = Field(default=None, max_length=16)
 
 
 class OptionRead(BaseModel):
@@ -71,6 +72,12 @@ class OptionRead(BaseModel):
     id: int
     category: str
     value: str
+    abbreviation: str | None = None
+
+
+class CycleOptionRead(BaseModel):
+    value: str
+    abbreviation: str
 
 
 class AppConfigRead(BaseModel):
@@ -81,7 +88,7 @@ class AppConfigRead(BaseModel):
     session_types: list[str]
     route_locations: list[str]
     shoe_types: list[str]
-    cycles: list[str]
+    cycles: list[CycleOptionRead]
 
 
 class AppConfigUpdate(BaseModel):

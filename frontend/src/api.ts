@@ -172,6 +172,11 @@ export type TrainingFractions = {
   groups: FractionGroup[];
 };
 
+export type CycleOption = {
+  value: string;
+  abbreviation: string;
+};
+
 export type AppConfig = {
   default_ftp: number;
   default_max_hr: number;
@@ -180,7 +185,7 @@ export type AppConfig = {
   session_types: string[];
   route_locations: string[];
   shoe_types: string[];
-  cycles: string[];
+  cycles: CycleOption[];
 };
 
 export type ActivityUpdate = Partial<{
@@ -236,11 +241,15 @@ export function updateConfig(
   });
 }
 
-export function addConfigOption(category: "session_type" | "route_location" | "shoe_type" | "cycle", value: string) {
+export function addConfigOption(
+  category: "session_type" | "route_location" | "shoe_type" | "cycle",
+  value: string,
+  abbreviation?: string,
+) {
   return request<{ id: number; category: string; value: string }>("/config/options", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ category, value }),
+    body: JSON.stringify({ category, value, abbreviation }),
   });
 }
 

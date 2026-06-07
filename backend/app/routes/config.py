@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import AppSetting, OptionValue
-from app.schemas import AppConfigRead, AppConfigUpdate, OptionCreate, OptionRead
+from app.schemas import AppConfigRead, AppConfigUpdate, CycleOptionRead, OptionCreate, OptionRead
 
 
 router = APIRouter(prefix="/config", tags=["config"])
@@ -40,6 +40,18 @@ def _options(db: Session, category: str) -> list[str]:
     )
 
 
+def _cycle_options(db: Session) -> list[CycleOptionRead]:
+    options = db.scalars(
+        select(OptionValue)
+        .where(OptionValue.category == "cycle")
+        .order_by(OptionValue.value)
+    ).all()
+    return [
+        CycleOptionRead(value=option.value, abbreviation=(option.abbreviation or option.value[:3]).upper())
+        for option in options
+    ]
+
+
 @router.get("", response_model=AppConfigRead)
 def get_config(db: Session = Depends(get_db)) -> AppConfigRead:
     return AppConfigRead(
@@ -50,7 +62,7 @@ def get_config(db: Session = Depends(get_db)) -> AppConfigRead:
         session_types=_options(db, "session_type"),
         route_locations=_options(db, "route_location"),
         shoe_types=_options(db, "shoe_type"),
-        cycles=_options(db, "cycle"),
+        cycles=_cycle_options(db),
     )
 
 
@@ -76,6 +88,9 @@ def add_option(payload: OptionCreate, db: Session = Depends(get_db)) -> OptionRe
     value = payload.value.strip()
     if not value:
         raise HTTPException(status_code=400, detail="Valeur vide")
+    abbreviation = payload.abbreviation.strip().upper() if payload.abbreviation else None
+    if payload.category == "cycle" and not abbreviation:
+        raise HTTPException(status_code=400, detail="Abreviation obligatoire pour un cycle")
 
     existing = db.scalar(
         select(OptionValue)
@@ -83,9 +98,13 @@ def add_option(payload: OptionCreate, db: Session = Depends(get_db)) -> OptionRe
         .limit(1)
     )
     if existing is not None:
+        if abbreviation and not existing.abbreviation:
+            existing.abbreviation = abbreviation
+            db.commit()
+            db.refresh(existing)
         return OptionRead.model_validate(existing)
 
-    option = OptionValue(category=payload.category, value=value)
+    option = OptionValue(category=payload.category, value=value, abbreviation=abbreviation)
     db.add(option)
     db.commit()
     db.refresh(option)
