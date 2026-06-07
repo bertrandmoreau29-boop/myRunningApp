@@ -14,6 +14,7 @@ FITNESS_DAYS = 42
 FATIGUE_DAYS = 7
 CALENDAR_WEEKS = 12
 VO2_MIN_SPEED = 1000 / 270
+FRACTION_HR_TOLERANCE = 1.5
 
 # Baseline known by the user before a full historical import is available.
 INITIAL_FITNESS = 44.0
@@ -197,6 +198,12 @@ def _heart_rate_percent(avg_heart_rate: int | None, max_hr: int) -> float | None
     return (float(avg_heart_rate) / max_hr) * 100
 
 
+def _is_in_hr_range(value: float | None, minimum: float, maximum: float) -> bool:
+    if value is None:
+        return False
+    return minimum - FRACTION_HR_TOLERANCE <= value <= maximum + FRACTION_HR_TOLERANCE
+
+
 def _fraction_type_from_session_type(session_type: str | None) -> str | None:
     if not session_type:
         return None
@@ -352,10 +359,10 @@ def get_training_fractions(db: Session = Depends(get_db)) -> dict[str, object]:
         fraction_type = _fraction_type_from_session_type(activity.session_type)
         heart_rate_percent = _heart_rate_percent(lap.avg_heart_rate, max_hr)
         if fraction_type == "marathon":
-            if heart_rate_percent is not None and 83 <= heart_rate_percent <= 87:
+            if _is_in_hr_range(heart_rate_percent, 83, 87):
                 marathon_rows.append(_fraction_row(activity, lap, "marathon"))
         elif fraction_type == "threshold":
-            if heart_rate_percent is not None and 88 <= heart_rate_percent <= 92:
+            if _is_in_hr_range(heart_rate_percent, 88, 92):
                 threshold_rows.append(_fraction_row(activity, lap, "threshold"))
         elif fraction_type == "vo2max":
             duration_seconds = float(lap.total_timer_time or lap.total_elapsed_time or 0)

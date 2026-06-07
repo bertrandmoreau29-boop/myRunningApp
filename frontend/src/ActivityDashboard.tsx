@@ -1407,7 +1407,7 @@ function FractionsPage({ fractions }: { fractions: TrainingFractions | null }) {
       <div className="fractions-title">
         <div>
           <h2>Fractions</h2>
-          <p>Type de seance d'abord, puis filtre FC pour seuil/marathon et allure pour VO2.</p>
+          <p>Type de seance d'abord, puis filtre FC avec tolerance +/-1,5% pour seuil/marathon et allure pour VO2.</p>
         </div>
       </div>
       <div className="fraction-groups">
