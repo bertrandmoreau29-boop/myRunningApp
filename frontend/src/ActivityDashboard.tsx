@@ -68,9 +68,29 @@ type EfPoint = {
   rollingValue: number;
 };
 
+const headerTips = {
+  gap: "GAP = allure ajustee selon la pente. Calculee avec les points distance/altitude/vitesse du FIT pour estimer une allure equivalente sur plat.",
+  powerGap: "Power GAP = puissance moyenne / vitesse ajustee pente. Plus bas = moins de watts necessaires pour une meme allure corrigee.",
+  ef: "EF = puissance normalisee / frequence cardiaque moyenne. Plus haut = meilleur rendement cardio pour la seance.",
+  efGap: "EF GAP = EF x vitesse ajustee pente. Indicateur maison de rendement cardio-mecanique corrige de la pente; plus haut = mieux.",
+  if: "IF = Intensity Factor = puissance normalisee / FTP. 1.00 signifie un effort au niveau FTP.",
+  tss: "TSS = Training Stress Score. Calcule avec duree, puissance normalisee, IF et FTP.",
+  fitness: "Fitness = charge chronique type CTL, calculee depuis le TSS avec une constante de 42 jours.",
+  form: "Forme = Fitness - Fatigue. Une valeur positive indique une charge recente plus basse que la charge chronique.",
+  fatigue: "Fatigue = charge aigue type ATL, calculee depuis le TSS avec une constante de 7 jours.",
+};
+
 function cycleAbbreviation(appConfig: AppConfig | null, value: string | null | undefined) {
   if (!value) return "-";
   return appConfig?.cycles.find((cycle) => cycle.value === value)?.abbreviation ?? value.slice(0, 3).toUpperCase();
+}
+
+function HeaderTip({ label, tip }: { label: string; tip: string }) {
+  return (
+    <th className="header-tip" title={tip}>
+      {label}
+    </th>
+  );
 }
 
 export function ActivityDashboard() {
@@ -676,17 +696,23 @@ function DashboardContent({
                       <th>Commentaire</th>
                       <th>Lieu/parcours</th>
                       <th>Allure</th>
+                      <HeaderTip label="GAP" tip={headerTips.gap} />
+                      <HeaderTip label="Power GAP" tip={headerTips.powerGap} />
+                      <HeaderTip label="EF GAP" tip={headerTips.efGap} />
                       <th>FC moy.</th>
                       <th>Puissance</th>
                       <th>Puiss. norm.</th>
                       <th>FTP</th>
-                      <th>EF</th>
-                      <th>IF</th>
-                      <th>TSS</th>
+                      <HeaderTip label="EF" tip={headerTips.ef} />
+                      <HeaderTip label="IF" tip={headerTips.if} />
+                      <HeaderTip label="TSS" tip={headerTips.tss} />
                       <th>D+</th>
                       <th>D-</th>
                       <th>Cadence</th>
                       <th>Contact sol</th>
+                      <HeaderTip label="Fitness" tip={headerTips.fitness} />
+                      <HeaderTip label="Forme" tip={headerTips.form} />
+                      <HeaderTip label="Fatigue" tip={headerTips.fatigue} />
                     </tr>
                   </thead>
                   <tbody>
@@ -745,6 +771,9 @@ function DashboardContent({
                           />
                         </td>
                         <td>{formatPace(activity.avg_speed)}</td>
+                        <td>{formatPace(activity.grade_adjusted_speed)}</td>
+                        <td>{formatDecimal(activity.power_grade_adjusted_speed_ratio, 1)}</td>
+                        <td>{formatDecimal(activity.efficiency_grade_adjusted_speed_ratio, 2)}</td>
                         <td>{formatNumber(activity.avg_heart_rate, " bpm")}</td>
                         <td>{formatNumber(activity.avg_power, " W")}</td>
                         <td>{formatNumber(activity.normalized_power, " W")}</td>
@@ -773,6 +802,9 @@ function DashboardContent({
                         <td>{formatNumber(activity.descent, " m")}</td>
                         <td>{formatCadence(activity.avg_cadence)}</td>
                         <td>{formatMilliseconds(activity.avg_ground_contact_time)}</td>
+                        <td>{formatDecimal(activity.fitness, 1)}</td>
+                        <td>{formatDecimal(activity.form, 1)}</td>
+                        <td>{formatDecimal(activity.fatigue, 1)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -796,6 +828,9 @@ function DashboardContent({
                   <th>Distance</th>
                   <th>Duree</th>
                   <th>Allure</th>
+                  <HeaderTip label="GAP" tip={headerTips.gap} />
+                  <HeaderTip label="Power GAP" tip={headerTips.powerGap} />
+                  <HeaderTip label="EF GAP" tip={headerTips.efGap} />
                   <th>FC moy.</th>
                   <th>Cadence</th>
                   <th>Puissance</th>
@@ -810,6 +845,9 @@ function DashboardContent({
                     <td>{formatDistance(lap.total_distance)}</td>
                     <td>{formatDuration(lap.total_timer_time)}</td>
                     <td>{formatPace(lap.avg_speed)}</td>
+                    <td>{formatPace(lap.grade_adjusted_speed)}</td>
+                    <td>{formatDecimal(lap.power_grade_adjusted_speed_ratio, 1)}</td>
+                    <td>{formatDecimal(lap.efficiency_grade_adjusted_speed_ratio, 2)}</td>
                     <td>{formatNumber(lap.avg_heart_rate, " bpm")}</td>
                     <td>{formatCadence(lap.avg_cadence)}</td>
                     <td>{formatNumber(lap.avg_power, " W")}</td>
@@ -1402,11 +1440,14 @@ function FractionGroupTable({ group }: { group: TrainingFractions["groups"][numb
                 <th>Distance</th>
                 <th>Duree</th>
                 <th>Allure</th>
+                <HeaderTip label="GAP" tip={headerTips.gap} />
+                <HeaderTip label="Power GAP" tip={headerTips.powerGap} />
+                <HeaderTip label="EF GAP" tip={headerTips.efGap} />
                 <th>FC moy.</th>
                 <th>FC max</th>
                 <th>Puissance</th>
                 <th>Puiss. norm.</th>
-                <th>EF fraction</th>
+                <HeaderTip label="EF fraction" tip={headerTips.ef} />
                 <th>Cadence</th>
                 <th>Contact sol</th>
               </tr>
@@ -1421,6 +1462,9 @@ function FractionGroupTable({ group }: { group: TrainingFractions["groups"][numb
                   <td>{formatDistance(row.total_distance)}</td>
                   <td>{formatDuration(row.total_timer_time)}</td>
                   <td>{formatPace(row.avg_speed)}</td>
+                  <td>{formatPace(row.grade_adjusted_speed)}</td>
+                  <td>{formatDecimal(row.power_grade_adjusted_speed_ratio, 1)}</td>
+                  <td>{formatDecimal(row.efficiency_grade_adjusted_speed_ratio, 2)}</td>
                   <td>{formatNumber(row.avg_heart_rate, " bpm")}</td>
                   <td>{formatNumber(row.max_heart_rate, " bpm")}</td>
                   <td>{formatNumber(row.avg_power, " W")}</td>

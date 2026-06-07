@@ -16,6 +16,7 @@ export type Activity = {
   total_timer_time: number | null;
   total_distance: number | null;
   avg_speed: number | null;
+  grade_adjusted_speed: number | null;
   max_speed: number | null;
   avg_heart_rate: number | null;
   max_heart_rate: number | null;
@@ -27,7 +28,12 @@ export type Activity = {
   threshold_power: number | null;
   intensity_factor: number | null;
   efficiency_factor: number | null;
+  power_grade_adjusted_speed_ratio: number | null;
+  efficiency_grade_adjusted_speed_ratio: number | null;
   training_stress_score: number | null;
+  fitness: number | null;
+  form: number | null;
+  fatigue: number | null;
   avg_ground_contact_time: number | null;
   ascent: number | null;
   descent: number | null;
@@ -45,6 +51,7 @@ export type Lap = {
   total_timer_time: number | null;
   total_distance: number | null;
   avg_speed: number | null;
+  grade_adjusted_speed: number | null;
   max_speed: number | null;
   avg_heart_rate: number | null;
   max_heart_rate: number | null;
@@ -53,6 +60,8 @@ export type Lap = {
   avg_power: number | null;
   max_power: number | null;
   normalized_power: number | null;
+  power_grade_adjusted_speed_ratio: number | null;
+  efficiency_grade_adjusted_speed_ratio: number | null;
   avg_ground_contact_time: number | null;
 };
 
@@ -149,6 +158,7 @@ export type FractionRow = {
   total_timer_time: number | null;
   total_distance: number | null;
   avg_speed: number | null;
+  grade_adjusted_speed: number | null;
   max_speed: number | null;
   avg_heart_rate: number | null;
   max_heart_rate: number | null;
@@ -157,6 +167,8 @@ export type FractionRow = {
   avg_power: number | null;
   max_power: number | null;
   normalized_power: number | null;
+  power_grade_adjusted_speed_ratio: number | null;
+  efficiency_grade_adjusted_speed_ratio: number | null;
   avg_ground_contact_time: number | null;
   efficiency_factor: number | null;
 };

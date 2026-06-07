@@ -134,6 +134,63 @@ def _training_stress_score(timer_time: Any, normalized_power: Any, threshold_pow
     return round((seconds * power * intensity) / (threshold * 3600) * 100, 1)
 
 
+def _grade_adjusted_speed(records: list[dict[str, Any]], fallback_speed: Any = None) -> float | None:
+    adjusted_distance = 0.0
+    total_distance = 0.0
+    previous: dict[str, Any] | None = None
+
+    for record in records:
+        if previous is None:
+            previous = record
+            continue
+
+        current_distance = _float(record.get("distance"))
+        previous_distance = _float(previous.get("distance"))
+        current_altitude = _float(record.get("altitude"))
+        previous_altitude = _float(previous.get("altitude"))
+        speed = _float(record.get("speed"))
+
+        previous = record
+        if (
+            current_distance is None
+            or previous_distance is None
+            or current_altitude is None
+            or previous_altitude is None
+            or speed is None
+            or speed <= 0
+        ):
+            continue
+
+        distance_delta = current_distance - previous_distance
+        if distance_delta <= 1:
+            continue
+
+        grade = max(-0.20, min(0.20, (current_altitude - previous_altitude) / distance_delta))
+        correction = max(0.45, min(1.90, 1 + grade * 3.5))
+        adjusted_distance += speed * correction * distance_delta
+        total_distance += distance_delta
+
+    if total_distance > 0:
+        return adjusted_distance / total_distance
+    return _float(fallback_speed)
+
+
+def _power_grade_adjusted_speed_ratio(power: Any, grade_adjusted_speed: Any) -> float | None:
+    parsed_power = _float(power)
+    parsed_speed = _float(grade_adjusted_speed)
+    if parsed_power is None or parsed_speed is None or parsed_speed <= 0:
+        return None
+    return round(parsed_power / parsed_speed, 2)
+
+
+def _efficiency_grade_adjusted_speed_ratio(efficiency_factor: Any, grade_adjusted_speed: Any) -> float | None:
+    parsed_efficiency = _float(efficiency_factor)
+    parsed_speed = _float(grade_adjusted_speed)
+    if parsed_efficiency is None or parsed_speed is None or parsed_speed <= 0:
+        return None
+    return round(parsed_efficiency * parsed_speed, 3)
+
+
 def _cadence_from_cycles(total_cycles: Any, timer_time: Any) -> int | None:
     cycles = _float(total_cycles)
     seconds = _float(timer_time)
@@ -262,12 +319,33 @@ def parse_fit_file(path: Path) -> dict[str, Any]:
         for index, record in enumerate(records, start=1)
     ]
 
+    summary_grade_adjusted_speed = _grade_adjusted_speed(parsed_records, summary["avg_speed"])
+    summary["grade_adjusted_speed"] = summary_grade_adjusted_speed
+    summary["power_grade_adjusted_speed_ratio"] = _power_grade_adjusted_speed_ratio(
+        summary["avg_power"],
+        summary_grade_adjusted_speed,
+    )
+    summary["efficiency_grade_adjusted_speed_ratio"] = _efficiency_grade_adjusted_speed_ratio(
+        summary["efficiency_factor"],
+        summary_grade_adjusted_speed,
+    )
+
     parsed_laps = []
     for index, lap in enumerate(laps, start=1):
         lap_records = _records_for_lap(lap, parsed_records)
         lap_cadences = [record["cadence"] for record in lap_records]
         lap_powers = [record["power"] for record in lap_records]
         lap_ground_contact_times = [record["ground_contact_time"] for record in lap_records]
+        lap_avg_speed = _avg_speed(
+            _get(lap, "total_distance"),
+            _get(lap, "total_timer_time"),
+            _get(lap, "avg_speed", "enhanced_avg_speed"),
+        )
+        lap_avg_heart_rate = _int(_get(lap, "avg_heart_rate"))
+        lap_avg_power = _positive_int(_get(lap, "avg_power", "Lap Power")) or _avg_int(lap_powers)
+        lap_normalized_power = _positive_int(_get(lap, "normalized_power")) or _normalized_power(lap_powers)
+        lap_efficiency_factor = _efficiency_factor(lap_normalized_power, lap_avg_heart_rate)
+        lap_grade_adjusted_speed = _grade_adjusted_speed(lap_records, lap_avg_speed)
 
         parsed_laps.append(
             {
@@ -276,21 +354,26 @@ def parse_fit_file(path: Path) -> dict[str, Any]:
             "total_elapsed_time": _float(_get(lap, "total_elapsed_time")),
             "total_timer_time": _float(_get(lap, "total_timer_time")),
             "total_distance": _float(_get(lap, "total_distance")),
-            "avg_speed": _avg_speed(
-                _get(lap, "total_distance"),
-                _get(lap, "total_timer_time"),
-                _get(lap, "avg_speed", "enhanced_avg_speed"),
-            ),
+            "avg_speed": lap_avg_speed,
+            "grade_adjusted_speed": lap_grade_adjusted_speed,
             "max_speed": _float(_get(lap, "max_speed", "enhanced_max_speed")),
-            "avg_heart_rate": _int(_get(lap, "avg_heart_rate")),
+            "avg_heart_rate": lap_avg_heart_rate,
             "max_heart_rate": _int(_get(lap, "max_heart_rate")),
             "avg_cadence": _positive_int(_get(lap, "avg_cadence"))
             or _cadence_from_cycles(_get(lap, "total_cycles"), _get(lap, "total_timer_time"))
             or _avg_int(lap_cadences),
             "max_cadence": _positive_int(_get(lap, "max_cadence")) or _max_int(lap_cadences),
-            "avg_power": _positive_int(_get(lap, "avg_power", "Lap Power")) or _avg_int(lap_powers),
+            "avg_power": lap_avg_power,
             "max_power": _positive_int(_get(lap, "max_power")) or _max_int(lap_powers),
-            "normalized_power": _positive_int(_get(lap, "normalized_power")) or _normalized_power(lap_powers),
+            "normalized_power": lap_normalized_power,
+            "power_grade_adjusted_speed_ratio": _power_grade_adjusted_speed_ratio(
+                lap_avg_power,
+                lap_grade_adjusted_speed,
+            ),
+            "efficiency_grade_adjusted_speed_ratio": _efficiency_grade_adjusted_speed_ratio(
+                lap_efficiency_factor,
+                lap_grade_adjusted_speed,
+            ),
             "avg_ground_contact_time": _float(_get(lap, "avg_stance_time", "avg_ground_contact_time"))
             or _avg_float(lap_ground_contact_times),
             }

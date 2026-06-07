@@ -171,6 +171,7 @@ def _fraction_row(activity: Activity, lap: object, fraction_type: str) -> dict[s
         "total_timer_time": lap.total_timer_time,
         "total_distance": lap.total_distance,
         "avg_speed": lap.avg_speed,
+        "grade_adjusted_speed": lap.grade_adjusted_speed,
         "max_speed": lap.max_speed,
         "avg_heart_rate": lap.avg_heart_rate,
         "max_heart_rate": lap.max_heart_rate,
@@ -179,6 +180,8 @@ def _fraction_row(activity: Activity, lap: object, fraction_type: str) -> dict[s
         "avg_power": lap.avg_power,
         "max_power": lap.max_power,
         "normalized_power": lap.normalized_power,
+        "power_grade_adjusted_speed_ratio": lap.power_grade_adjusted_speed_ratio,
+        "efficiency_grade_adjusted_speed_ratio": lap.efficiency_grade_adjusted_speed_ratio,
         "avg_ground_contact_time": lap.avg_ground_contact_time,
         "efficiency_factor": _lap_efficiency_factor(lap),
     }

@@ -438,7 +438,7 @@ h3 {
 table {
   border-collapse: collapse;
   font-size: 13px;
-  min-width: 720px;
+  min-width: 980px;
   width: 100%;
 }
 
@@ -449,6 +449,12 @@ td {
   text-align: left;
   vertical-align: middle;
   white-space: nowrap;
+}
+
+.header-tip {
+  cursor: help;
+  text-decoration: underline dotted #7e9187;
+  text-underline-offset: 4px;
 }
 
 .ftp-input {
@@ -721,7 +727,7 @@ tbody tr.selected {
 }
 
 .fractions-table table {
-  min-width: 1180px;
+  min-width: 1420px;
 }
 
 .fraction-panel tbody tr {

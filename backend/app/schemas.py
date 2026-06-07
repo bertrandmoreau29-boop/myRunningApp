@@ -22,6 +22,7 @@ class ActivitySummary(BaseModel):
     total_timer_time: float | None = None
     total_distance: float | None = None
     avg_speed: float | None = None
+    grade_adjusted_speed: float | None = None
     max_speed: float | None = None
     avg_heart_rate: int | None = None
     max_heart_rate: int | None = None
@@ -33,7 +34,12 @@ class ActivitySummary(BaseModel):
     threshold_power: int | None = None
     intensity_factor: float | None = None
     efficiency_factor: float | None = None
+    power_grade_adjusted_speed_ratio: float | None = None
+    efficiency_grade_adjusted_speed_ratio: float | None = None
     training_stress_score: float | None = None
+    fitness: float | None = None
+    form: float | None = None
+    fatigue: float | None = None
     avg_ground_contact_time: float | None = None
     ascent: float | None = None
     descent: float | None = None
@@ -108,6 +114,7 @@ class LapRead(BaseModel):
     total_timer_time: float | None = None
     total_distance: float | None = None
     avg_speed: float | None = None
+    grade_adjusted_speed: float | None = None
     max_speed: float | None = None
     avg_heart_rate: int | None = None
     max_heart_rate: int | None = None
@@ -116,6 +123,8 @@ class LapRead(BaseModel):
     avg_power: int | None = None
     max_power: int | None = None
     normalized_power: int | None = None
+    power_grade_adjusted_speed_ratio: float | None = None
+    efficiency_grade_adjusted_speed_ratio: float | None = None
     avg_ground_contact_time: float | None = None
 
 

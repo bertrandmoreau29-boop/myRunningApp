@@ -1,4 +1,5 @@
 from pathlib import Path
+from datetime import date, timedelta
 from uuid import uuid4
 from zipfile import BadZipFile, ZipFile
 
@@ -7,13 +8,23 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.fit_parser import _intensity_factor, _training_stress_score, parse_fit_file
+from app.fit_parser import (
+    _efficiency_grade_adjusted_speed_ratio,
+    _intensity_factor,
+    _power_grade_adjusted_speed_ratio,
+    _training_stress_score,
+    parse_fit_file,
+)
 from app.models import Activity, AppSetting, Lap, Record
 from app.schemas import ActivityDetail, ActivitySummary, ActivityUpdate, LapRead, RecordRead, ThresholdPowerUpdate
 
 
 router = APIRouter(prefix="/activities", tags=["activities"])
 UPLOAD_DIR = Path("uploads")
+FITNESS_DAYS = 42
+FATIGUE_DAYS = 7
+INITIAL_FITNESS = 44.0
+INITIAL_FATIGUE = 41.0
 
 
 def _summary(activity: Activity, lap_count: int, record_count: int) -> ActivitySummary:
@@ -40,6 +51,54 @@ def _recalculate_threshold_metrics(activity: Activity) -> None:
 def _recalculate_distance_metrics(activity: Activity) -> None:
     if activity.total_distance is not None and activity.total_timer_time and activity.total_timer_time > 0:
         activity.avg_speed = activity.total_distance / activity.total_timer_time
+        activity.grade_adjusted_speed = activity.avg_speed
+        activity.power_grade_adjusted_speed_ratio = _power_grade_adjusted_speed_ratio(
+            activity.avg_power,
+            activity.grade_adjusted_speed,
+        )
+        activity.efficiency_grade_adjusted_speed_ratio = _efficiency_grade_adjusted_speed_ratio(
+            activity.efficiency_factor,
+            activity.grade_adjusted_speed,
+        )
+
+
+def _apply_daily_load(current: float, tss: float, time_constant_days: int) -> float:
+    return current + (tss - current) / time_constant_days
+
+
+def recalculate_training_history(db: Session) -> None:
+    activities = db.scalars(
+        select(Activity)
+        .where(Activity.started_at.is_not(None))
+        .order_by(Activity.started_at.asc(), Activity.created_at.asc())
+    ).all()
+    if not activities:
+        return
+
+    activities_by_day: dict[date, list[Activity]] = {}
+    for activity in activities:
+        if activity.started_at is None:
+            continue
+        activities_by_day.setdefault(activity.started_at.date(), []).append(activity)
+
+    fitness = INITIAL_FITNESS
+    fatigue = INITIAL_FATIGUE
+    current_day = min(activities_by_day)
+    last_day = max(activities_by_day)
+
+    while current_day <= last_day:
+        day_activities = activities_by_day.get(current_day, [])
+        daily_tss = sum(float(activity.training_stress_score or 0) for activity in day_activities)
+        fitness = _apply_daily_load(fitness, daily_tss, FITNESS_DAYS)
+        fatigue = _apply_daily_load(fatigue, daily_tss, FATIGUE_DAYS)
+        form = fitness - fatigue
+
+        for activity in day_activities:
+            activity.fitness = round(fitness, 1)
+            activity.fatigue = round(fatigue, 1)
+            activity.form = round(form, 1)
+
+        current_day += timedelta(days=1)
 
 
 def _default_threshold_power(db: Session) -> int | None:
@@ -155,6 +214,7 @@ async def upload_activity(file: UploadFile = File(...), db: Session = Depends(ge
             zip_path.unlink(missing_ok=True)
             raise HTTPException(status_code=400, detail="Fichier zip illisible") from exc
 
+    recalculate_training_history(db)
     db.commit()
     activity, lap_count, record_count = imported[0]
     db.refresh(activity)
@@ -201,6 +261,7 @@ def update_threshold_power(
 
     activity.threshold_power = payload.threshold_power
     _recalculate_threshold_metrics(activity)
+    recalculate_training_history(db)
     db.commit()
     db.refresh(activity)
 
@@ -229,6 +290,7 @@ def update_activity(activity_id: int, payload: ActivityUpdate, db: Session = Dep
         activity.threshold_power = payload.threshold_power
         _recalculate_threshold_metrics(activity)
 
+    recalculate_training_history(db)
     db.commit()
     db.refresh(activity)
 
