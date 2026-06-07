@@ -31,3 +31,19 @@ Le frontend ecoute sur `http://127.0.0.1:5173`.
 - `GET /api/activities/{activity_id}` detail d'une activite
 - `GET /api/activities/{activity_id}/laps` tours/laps
 - `GET /api/activities/{activity_id}/records` points temporels
+
+## Import Strava
+
+Creer une application Strava puis definir les variables d'environnement avant de lancer le backend:
+
+```powershell
+$env:STRAVA_CLIENT_ID="..."
+$env:STRAVA_CLIENT_SECRET="..."
+$env:STRAVA_REDIRECT_URI="http://127.0.0.1:8000/api/strava/callback"
+```
+
+Dans l'application Strava, l'Authorization Callback Domain doit correspondre au domaine du backend local ou heberge.
+En local, utiliser `127.0.0.1`.
+
+Le bouton `Importer Strava` ouvre une fenetre de preparation: dates debut/fin, chaussure, cycle et FTP a appliquer aux seances importees.
+Les doublons Strava ou les activites deja importees depuis FIT avec date/distance proches sont ignorees avec un warning.

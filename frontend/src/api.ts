@@ -200,6 +200,28 @@ export type AppConfig = {
   cycles: CycleOption[];
 };
 
+export type StravaStatus = {
+  configured: boolean;
+  connected: boolean;
+  auth_url: string | null;
+  missing: string[];
+};
+
+export type StravaImportPayload = {
+  start_date: string;
+  end_date: string;
+  shoe_type: string | null;
+  cycle: string | null;
+  threshold_power: number;
+};
+
+export type StravaImportResult = {
+  imported_count: number;
+  skipped_count: number;
+  warnings: string[];
+  imported_activity_ids: number[];
+};
+
 export type ActivityUpdate = Partial<{
   session_type: string | null;
   route_location: string | null;
@@ -286,6 +308,18 @@ export function fetchTrainingCalendar() {
 
 export function fetchTrainingFractions() {
   return request<TrainingFractions>("/training/fractions");
+}
+
+export function fetchStravaStatus() {
+  return request<StravaStatus>("/strava/status");
+}
+
+export function importStravaActivities(payload: StravaImportPayload) {
+  return request<StravaImportResult>("/strava/import", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
 }
 
 export function uploadFit(file: File) {

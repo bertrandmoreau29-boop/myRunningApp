@@ -11,6 +11,7 @@ class Activity(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    strava_activity_id: Mapped[int | None] = mapped_column(Integer, index=True)
     sport: Mapped[str | None] = mapped_column(String(80))
     sub_sport: Mapped[str | None] = mapped_column(String(80))
     session_type: Mapped[str | None] = mapped_column(String(160))

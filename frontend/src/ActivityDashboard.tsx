@@ -17,6 +17,9 @@ import {
   AppConfig,
   Lap,
   RecordPoint,
+  StravaImportPayload,
+  StravaImportResult,
+  StravaStatus,
   TrainingCalendar,
   TrainingFractions,
   TrainingMetrics,
@@ -29,11 +32,13 @@ import {
   fetchConfig,
   fetchLaps,
   fetchRecords,
+  fetchStravaStatus,
   fetchTrainingCalendar,
   fetchTrainingFractions,
   fetchTrainingMetrics,
   fetchWeeklyHrDistribution,
   fetchWeeklyTss,
+  importStravaActivities,
   updateActivity,
   updateConfig,
   updateThresholdPower,
@@ -93,6 +98,10 @@ function HeaderTip({ label, tip }: { label: string; tip: string }) {
   );
 }
 
+function toDateInputValue(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
 export function ActivityDashboard() {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [trainingMetrics, setTrainingMetrics] = useState<TrainingMetrics | null>(null);
@@ -105,6 +114,10 @@ export function ActivityDashboard() {
   const [detail, setDetail] = useState<DetailState>(emptyDetail);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
+  const [isStravaModalOpen, setIsStravaModalOpen] = useState(false);
+  const [isStravaImporting, setIsStravaImporting] = useState(false);
+  const [stravaStatus, setStravaStatus] = useState<StravaStatus | null>(null);
+  const [stravaResult, setStravaResult] = useState<StravaImportResult | null>(null);
   const [savingThresholdId, setSavingThresholdId] = useState<number | null>(null);
   const [showRecords, setShowRecords] = useState(false);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
@@ -202,6 +215,38 @@ export function ActivityDashboard() {
     } finally {
       setIsUploading(false);
       event.target.value = "";
+    }
+  }
+
+  async function openStravaModal() {
+    setError(null);
+    setStravaResult(null);
+    setIsStravaModalOpen(true);
+    try {
+      setStravaStatus(await fetchStravaStatus());
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Erreur inconnue");
+    }
+  }
+
+  async function refreshStravaStatus() {
+    setStravaStatus(await fetchStravaStatus());
+  }
+
+  async function handleStravaImport(payload: StravaImportPayload) {
+    setIsStravaImporting(true);
+    setError(null);
+    setStravaResult(null);
+    try {
+      const result = await importStravaActivities(payload);
+      setStravaResult(result);
+      await loadActivities(result.imported_activity_ids[0]);
+      await loadTrainingMetrics();
+      await loadConfig();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Erreur inconnue");
+    } finally {
+      setIsStravaImporting(false);
     }
   }
 
@@ -335,17 +380,24 @@ export function ActivityDashboard() {
   }
 
   return (
+    <>
     <main className="app-shell">
       <header className="topbar">
         <div>
           <h1>MonAppliRunning</h1>
           <p>Import FIT Garmin, stockage local et exploration des donnees.</p>
         </div>
-        <label className="upload-button">
-          <FileUp size={18} />
-          <span>{isUploading ? "Import..." : "Importer FIT"}</span>
-          <input type="file" accept=".fit,.zip" disabled={isUploading} onChange={handleUpload} />
-        </label>
+        <div className="topbar-actions">
+          <button className="upload-button" type="button" onClick={() => void openStravaModal()}>
+            <FileUp size={18} />
+            <span>Importer Strava</span>
+          </button>
+          <label className="upload-button">
+            <FileUp size={18} />
+            <span>{isUploading ? "Import..." : "Importer FIT"}</span>
+            <input type="file" accept=".fit,.zip" disabled={isUploading} onChange={handleUpload} />
+          </label>
+        </div>
       </header>
 
       <nav className="page-tabs" aria-label="Navigation">
@@ -423,6 +475,19 @@ export function ActivityDashboard() {
         />
       )}
     </main>
+    {isStravaModalOpen && (
+      <StravaImportModal
+        appConfig={appConfig}
+        isImporting={isStravaImporting}
+        onAddOption={handleAddOption}
+        onClose={() => setIsStravaModalOpen(false)}
+        onImport={handleStravaImport}
+        onRefreshStatus={refreshStravaStatus}
+        result={stravaResult}
+        status={stravaStatus}
+      />
+    )}
+    </>
   );
 }
 
@@ -939,6 +1004,169 @@ function DashboardContent({
         </div>
       )}
     </>
+  );
+}
+
+function StravaImportModal({
+  appConfig,
+  isImporting,
+  onAddOption,
+  onClose,
+  onImport,
+  onRefreshStatus,
+  result,
+  status,
+}: {
+  appConfig: AppConfig | null;
+  isImporting: boolean;
+  onAddOption: (category: "session_type" | "route_location" | "shoe_type" | "cycle") => Promise<void>;
+  onClose: () => void;
+  onImport: (payload: StravaImportPayload) => Promise<void>;
+  onRefreshStatus: () => Promise<void>;
+  result: StravaImportResult | null;
+  status: StravaStatus | null;
+}) {
+  const today = new Date();
+  const previousWeek = new Date(today);
+  previousWeek.setDate(today.getDate() - 7);
+  const [startDate, setStartDate] = useState(toDateInputValue(previousWeek));
+  const [endDate, setEndDate] = useState(toDateInputValue(today));
+  const [shoeType, setShoeType] = useState(appConfig?.default_shoe_type ?? "");
+  const [cycle, setCycle] = useState(appConfig?.default_cycle ?? "");
+  const [thresholdPower, setThresholdPower] = useState(appConfig?.default_ftp ?? 221);
+
+  useEffect(() => {
+    setShoeType(appConfig?.default_shoe_type ?? "");
+    setCycle(appConfig?.default_cycle ?? "");
+    setThresholdPower(appConfig?.default_ftp ?? 221);
+  }, [appConfig]);
+
+  const canImport = Boolean(status?.configured && status.connected && startDate && endDate && thresholdPower > 0);
+
+  return (
+    <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
+      <div className="comment-modal strava-modal" role="dialog" aria-modal="true" onMouseDown={(event) => event.stopPropagation()}>
+        <div className="panel-header">
+          <div>
+            <h2>Importer Strava</h2>
+            <span>Periode, chaussure, cycle et FTP pour les seances importees</span>
+          </div>
+        </div>
+
+        {!status ? (
+          <p className="empty-state">Verification de la connexion Strava...</p>
+        ) : !status.configured ? (
+          <div className="strava-warning">
+            <strong>Configuration Strava manquante</strong>
+            <span>Ajoute {status.missing.join(" et ")} dans l'environnement backend, puis redemarre le serveur.</span>
+          </div>
+        ) : !status.connected ? (
+          <div className="strava-connect">
+            <p>Connecte ton compte Strava avant de lancer l'import.</p>
+            <div className="modal-actions">
+              <a className="add-button" href={status.auth_url ?? "/api/strava/connect"} rel="noreferrer" target="_blank">
+                Connecter Strava
+              </a>
+              <button className="secondary-button" type="button" onClick={() => void onRefreshStatus()}>
+                Verifier connexion
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="strava-grid">
+              <label>
+                <span>Date debut</span>
+                <input type="date" value={startDate} onChange={(event) => setStartDate(event.currentTarget.value)} />
+              </label>
+              <label>
+                <span>Date fin</span>
+                <input type="date" value={endDate} onChange={(event) => setEndDate(event.currentTarget.value)} />
+              </label>
+              <label>
+                <span>FTP pour ces seances</span>
+                <input
+                  min="1"
+                  type="number"
+                  value={thresholdPower}
+                  onChange={(event) => setThresholdPower(Number.parseInt(event.currentTarget.value, 10) || 0)}
+                />
+              </label>
+              <label>
+                <span>Chaussure</span>
+                <div className="inline-select-action">
+                  <select value={shoeType} onChange={(event) => setShoeType(event.currentTarget.value)}>
+                    <option value="">-</option>
+                    {(appConfig?.shoe_types ?? []).map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                  <button className="add-button square" type="button" onClick={() => void onAddOption("shoe_type")}>
+                    +
+                  </button>
+                </div>
+              </label>
+              <label>
+                <span>Cycle</span>
+                <div className="inline-select-action">
+                  <select value={cycle} onChange={(event) => setCycle(event.currentTarget.value)}>
+                    <option value="">-</option>
+                    {(appConfig?.cycles ?? []).map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.value} ({option.abbreviation})
+                      </option>
+                    ))}
+                  </select>
+                  <button className="add-button square" type="button" onClick={() => void onAddOption("cycle")}>
+                    +
+                  </button>
+                </div>
+              </label>
+            </div>
+
+            {result && (
+              <div className="strava-result">
+                <strong>{result.imported_count} importee{result.imported_count > 1 ? "s" : ""}</strong>
+                <span>{result.skipped_count} warning{result.skipped_count > 1 ? "s" : ""}</span>
+                {result.warnings.length > 0 && (
+                  <ul>
+                    {result.warnings.map((warning) => (
+                      <li key={warning}>{warning}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          </>
+        )}
+
+        <div className="modal-actions">
+          <button className="secondary-button" type="button" onClick={onClose}>
+            Fermer
+          </button>
+          {status?.configured && status.connected && (
+            <button
+              className="add-button"
+              disabled={!canImport || isImporting}
+              type="button"
+              onClick={() =>
+                void onImport({
+                  start_date: startDate,
+                  end_date: endDate,
+                  shoe_type: shoeType || null,
+                  cycle: cycle || null,
+                  threshold_power: thresholdPower,
+                })
+              }
+            >
+              {isImporting ? "Import..." : "Importer"}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 

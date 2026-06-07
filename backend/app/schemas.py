@@ -1,4 +1,5 @@
 from datetime import datetime
+from datetime import date
 
 from pydantic import BaseModel, ConfigDict
 from pydantic import Field
@@ -9,6 +10,7 @@ class ActivitySummary(BaseModel):
 
     id: int
     filename: str
+    strava_activity_id: int | None = None
     sport: str | None = None
     sub_sport: str | None = None
     session_type: str | None = None
@@ -144,3 +146,25 @@ class RecordRead(BaseModel):
     latitude: float | None = None
     longitude: float | None = None
     temperature: int | None = None
+
+
+class StravaStatus(BaseModel):
+    configured: bool
+    connected: bool
+    auth_url: str | None = None
+    missing: list[str] = Field(default_factory=list)
+
+
+class StravaImportRequest(BaseModel):
+    start_date: date
+    end_date: date
+    shoe_type: str | None = None
+    cycle: str | None = None
+    threshold_power: int = Field(ge=1, le=2000)
+
+
+class StravaImportResult(BaseModel):
+    imported_count: int
+    skipped_count: int
+    warnings: list[str] = Field(default_factory=list)
+    imported_activity_ids: list[int] = Field(default_factory=list)

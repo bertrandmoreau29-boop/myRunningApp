@@ -36,6 +36,7 @@ def init_db() -> None:
 def _ensure_sqlite_columns() -> None:
     additions = {
         "activities": {
+            "strava_activity_id": "INTEGER",
             "session_type": "VARCHAR(160)",
             "route_location": "VARCHAR(160)",
             "shoe_type": "VARCHAR(160)",
