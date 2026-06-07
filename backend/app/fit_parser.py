@@ -253,14 +253,16 @@ def parse_fit_file(path: Path) -> dict[str, Any]:
     session = sessions[-1] if sessions else {}
     zones_target = zones_targets[-1] if zones_targets else {}
     record_cadences = [_positive_int(_get(record, "cadence")) for record in records]
-    record_powers = [_positive_int(_get(record, "power", "Power")) for record in records]
+    has_gps = any(_get(record, "position_lat") is not None and _get(record, "position_long") is not None for record in records)
+    power_field_order = ("power", "Power") if has_gps else ("Power", "power")
+    record_powers = [_positive_int(_get(record, *power_field_order)) for record in records]
     record_ground_contact_times = [
         _float(_get(record, "stance_time", "ground_contact_time")) for record in records
     ]
     record_temperatures = [_float(_get(record, "temperature", "Stryd Temperature")) for record in records]
-    avg_power = _positive_int(_get(session, "avg_power")) or _avg_int(record_powers)
+    avg_power = (_positive_int(_get(session, "avg_power")) if has_gps else None) or _avg_int(record_powers)
     avg_heart_rate = _int(_get(session, "avg_heart_rate"))
-    normalized_power = _positive_int(_get(session, "normalized_power")) or _normalized_power(record_powers)
+    normalized_power = (_positive_int(_get(session, "normalized_power")) if has_gps else None) or _normalized_power(record_powers)
     threshold_power = _positive_int(
         _get(session, "threshold_power", "functional_threshold_power")
     ) or _positive_int(_get(zones_target, "functional_threshold_power", "threshold_power"))
@@ -287,7 +289,7 @@ def parse_fit_file(path: Path) -> dict[str, Any]:
         ),
         "max_cadence": _positive_int(_get(session, "max_cadence")) or _max_int(record_cadences),
         "avg_power": avg_power,
-        "max_power": _positive_int(_get(session, "max_power")) or _max_int(record_powers),
+        "max_power": (_positive_int(_get(session, "max_power")) if has_gps else None) or _max_int(record_powers),
         "normalized_power": normalized_power,
         "threshold_power": threshold_power,
         "intensity_factor": intensity_factor,
@@ -315,7 +317,7 @@ def parse_fit_file(path: Path) -> dict[str, Any]:
             "speed": _float(_get(record, "speed", "enhanced_speed")),
             "heart_rate": _int(_get(record, "heart_rate")),
             "cadence": _positive_int(_get(record, "cadence")),
-            "power": _positive_int(_get(record, "power", "Power")),
+            "power": _positive_int(_get(record, *power_field_order)),
             "ground_contact_time": _float(_get(record, "stance_time", "ground_contact_time")),
             "altitude": _float(_get(record, "altitude", "enhanced_altitude")),
             "latitude": _latlon(_get(record, "position_lat")),
@@ -351,8 +353,10 @@ def parse_fit_file(path: Path) -> dict[str, Any]:
             _get(lap, "avg_speed", "enhanced_avg_speed"),
         )
         lap_avg_heart_rate = _int(_get(lap, "avg_heart_rate"))
-        lap_avg_power = _positive_int(_get(lap, "avg_power", "Lap Power")) or _avg_int(lap_powers)
-        lap_normalized_power = _positive_int(_get(lap, "normalized_power")) or _normalized_power(lap_powers)
+        lap_avg_power = (
+            _positive_int(_get(lap, "avg_power", "Lap Power")) if has_gps else _positive_int(_get(lap, "Lap Power"))
+        ) or _avg_int(lap_powers)
+        lap_normalized_power = (_positive_int(_get(lap, "normalized_power")) if has_gps else None) or _normalized_power(lap_powers)
         lap_efficiency_factor = _efficiency_factor(lap_normalized_power, lap_avg_heart_rate)
         lap_grade_adjusted_speed = _grade_adjusted_speed(lap_records, lap_avg_speed)
 
@@ -373,7 +377,7 @@ def parse_fit_file(path: Path) -> dict[str, Any]:
             or _avg_int(lap_cadences),
             "max_cadence": _positive_int(_get(lap, "max_cadence")) or _max_int(lap_cadences),
             "avg_power": lap_avg_power,
-            "max_power": _positive_int(_get(lap, "max_power")) or _max_int(lap_powers),
+            "max_power": (_positive_int(_get(lap, "max_power")) if has_gps else None) or _max_int(lap_powers),
             "normalized_power": lap_normalized_power,
             "power_grade_adjusted_speed_ratio": _power_grade_adjusted_speed_ratio(
                 lap_avg_power,
