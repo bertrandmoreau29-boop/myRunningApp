@@ -15,6 +15,10 @@ OPTION_CATEGORIES = {
     "shoe_type": "shoe_types",
     "cycle": "cycles",
 }
+DEFAULT_SETTING_BY_CATEGORY = {
+    "shoe_type": "default_shoe_type",
+    "cycle": "default_cycle",
+}
 
 
 def _setting(db: Session, key: str, default: str = "") -> str:
@@ -109,3 +113,29 @@ def add_option(payload: OptionCreate, db: Session = Depends(get_db)) -> OptionRe
     db.commit()
     db.refresh(option)
     return OptionRead.model_validate(option)
+
+
+@router.delete("/options", response_model=AppConfigRead)
+def delete_option(category: str, value: str, db: Session = Depends(get_db)) -> AppConfigRead:
+    if category not in OPTION_CATEGORIES:
+        raise HTTPException(status_code=400, detail="Categorie inconnue")
+
+    option_value = value.strip()
+    if not option_value:
+        raise HTTPException(status_code=400, detail="Valeur vide")
+
+    default_setting = DEFAULT_SETTING_BY_CATEGORY.get(category)
+    if default_setting and _setting(db, default_setting, "") == option_value:
+        raise HTTPException(status_code=400, detail="Impossible de supprimer une valeur utilisee par defaut")
+
+    option = db.scalar(
+        select(OptionValue)
+        .where(OptionValue.category == category, OptionValue.value == option_value)
+        .limit(1)
+    )
+    if option is None:
+        raise HTTPException(status_code=404, detail="Valeur introuvable")
+
+    db.delete(option)
+    db.commit()
+    return get_config(db)

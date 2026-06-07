@@ -9,6 +9,7 @@ import {
   Route,
   Timer,
   TrendingDown,
+  Trash2,
   Zap,
 } from "lucide-react";
 import {
@@ -22,6 +23,7 @@ import {
   WeeklyHrDistribution,
   WeeklyTss,
   addConfigOption,
+  deleteConfigOption,
   fetchActivities,
   fetchActivity,
   fetchConfig,
@@ -237,6 +239,17 @@ export function ActivityDashboard() {
     }
   }
 
+  async function handleDeleteOption(category: "session_type" | "route_location" | "shoe_type" | "cycle", value: string) {
+    const confirmed = window.confirm(`Supprimer "${value}" ?`);
+    if (!confirmed) return;
+    setError(null);
+    try {
+      setAppConfig(await deleteConfigOption(category, value));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Erreur inconnue");
+    }
+  }
+
   const stats = useMemo(() => {
     const activity = detail.activity;
     return [
@@ -345,6 +358,7 @@ export function ActivityDashboard() {
         <ConfigPage
           appConfig={appConfig}
           onAddOption={handleAddOption}
+          onDeleteOption={handleDeleteOption}
           onRefresh={loadConfig}
           onUpdateConfig={async (payload) => {
             const updated = await updateConfig(payload);
@@ -1062,11 +1076,13 @@ function DistanceCell({
 function ConfigPage({
   appConfig,
   onAddOption,
+  onDeleteOption,
   onRefresh,
   onUpdateConfig,
 }: {
   appConfig: AppConfig | null;
   onAddOption: (category: "session_type" | "route_location" | "shoe_type" | "cycle") => Promise<void>;
+  onDeleteOption: (category: "session_type" | "route_location" | "shoe_type" | "cycle", value: string) => Promise<void>;
   onRefresh: () => Promise<void>;
   onUpdateConfig: (
     payload: Partial<Pick<AppConfig, "default_ftp" | "default_max_hr" | "default_shoe_type" | "default_cycle">>,
@@ -1147,27 +1163,41 @@ function ConfigPage({
         title="Types de seance"
         values={appConfig?.session_types ?? []}
         onAdd={() => void onAddOption("session_type")}
+        onDelete={(value) => void onDeleteOption("session_type", value)}
       />
       <OptionPanel
         title="Lieux / parcours"
         values={appConfig?.route_locations ?? []}
         onAdd={() => void onAddOption("route_location")}
+        onDelete={(value) => void onDeleteOption("route_location", value)}
       />
       <OptionPanel
         title="Chaussures"
         values={appConfig?.shoe_types ?? []}
         onAdd={() => void onAddOption("shoe_type")}
+        onDelete={(value) => void onDeleteOption("shoe_type", value)}
       />
       <CycleOptionPanel
         title="Cycles"
         values={appConfig?.cycles ?? []}
         onAdd={() => void onAddOption("cycle")}
+        onDelete={(value) => void onDeleteOption("cycle", value)}
       />
     </section>
   );
 }
 
-function OptionPanel({ title, values, onAdd }: { title: string; values: string[]; onAdd: () => void }) {
+function OptionPanel({
+  title,
+  values,
+  onAdd,
+  onDelete,
+}: {
+  title: string;
+  values: string[];
+  onAdd: () => void;
+  onDelete: (value: string) => void;
+}) {
   return (
     <div className="panel config-panel">
       <div className="panel-header">
@@ -1178,7 +1208,12 @@ function OptionPanel({ title, values, onAdd }: { title: string; values: string[]
       </div>
       <ul className="option-list">
         {values.map((value) => (
-          <li key={value}>{value}</li>
+          <li key={value}>
+            <span>{value}</span>
+            <button className="delete-option-button" type="button" onClick={() => onDelete(value)} title="Supprimer">
+              <Trash2 size={14} />
+            </button>
+          </li>
         ))}
       </ul>
     </div>
@@ -1189,10 +1224,12 @@ function CycleOptionPanel({
   title,
   values,
   onAdd,
+  onDelete,
 }: {
   title: string;
   values: AppConfig["cycles"];
   onAdd: () => void;
+  onDelete: (value: string) => void;
 }) {
   return (
     <div className="panel config-panel">
@@ -1207,6 +1244,9 @@ function CycleOptionPanel({
           <li key={cycle.value}>
             <strong>{cycle.abbreviation}</strong>
             <span>{cycle.value}</span>
+            <button className="delete-option-button" type="button" onClick={() => onDelete(cycle.value)} title="Supprimer">
+              <Trash2 size={14} />
+            </button>
           </li>
         ))}
       </ul>

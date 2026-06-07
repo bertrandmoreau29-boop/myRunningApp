@@ -253,6 +253,13 @@ export function addConfigOption(
   });
 }
 
+export function deleteConfigOption(category: "session_type" | "route_location" | "shoe_type" | "cycle", value: string) {
+  const params = new URLSearchParams({ category, value });
+  return request<AppConfig>(`/config/options?${params.toString()}`, {
+    method: "DELETE",
+  });
+}
+
 export function fetchWeeklyTss() {
   return request<WeeklyTss>("/training/week");
 }
