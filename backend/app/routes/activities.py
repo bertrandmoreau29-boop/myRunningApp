@@ -146,6 +146,11 @@ def _default_shoe_type(db: Session) -> str | None:
     return setting.value if setting and setting.value else None
 
 
+def _default_treadmill_shoe_type(db: Session) -> str | None:
+    setting = db.get(AppSetting, "default_treadmill_shoe_type")
+    return setting.value if setting and setting.value else None
+
+
 def _default_cycle(db: Session) -> str | None:
     setting = db.get(AppSetting, "default_cycle")
     return setting.value if setting and setting.value else None
@@ -201,7 +206,10 @@ def _create_activity_from_fit(
             default_threshold,
         )
 
-    parsed["summary"]["shoe_type"] = shoe_type or _default_shoe_type(db)
+    if (parsed["summary"].get("session_type") or "").strip().lower() == "tapis endurance":
+        parsed["summary"]["shoe_type"] = _default_treadmill_shoe_type(db) or shoe_type or _default_shoe_type(db)
+    else:
+        parsed["summary"]["shoe_type"] = shoe_type or _default_shoe_type(db)
     parsed["summary"]["cycle"] = cycle or _default_cycle(db)
     activity = Activity(filename=original_filename, **parsed["summary"])
     db.add(activity)

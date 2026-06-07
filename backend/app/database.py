@@ -94,6 +94,7 @@ def _seed_defaults(connection) -> None:
         "default_ftp": "221",
         "default_max_hr": "176",
         "default_shoe_type": "New Balance 860 2026 bleues",
+        "default_treadmill_shoe_type": "asics tapis",
         "default_cycle": "Prepa_marathon_Lille_2026",
     }
     options = {
@@ -111,6 +112,7 @@ def _seed_defaults(connection) -> None:
         ],
         "shoe_type": [
             "New Balance 860 2026 bleues",
+            "asics tapis",
         ],
         "cycle": [
             "Intercyle",

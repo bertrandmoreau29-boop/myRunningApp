@@ -16,6 +16,10 @@ from app.fit_parser import _avg_float
 from app.models import Activity, Lap, Record
 from app.routes.activities import recalculate_training_history
 
+ROAD_SHOE = "New Balance 860 2026 bleues"
+TREADMILL_SHOE = "asics tapis"
+ROAD_SHOE_START = "2026-04-16"
+
 
 def _find_uploaded_file(filename: str) -> Path | None:
     upload_dir = Path("uploads")
@@ -157,6 +161,15 @@ def main() -> None:
                         updated_records += 1
 
             updated_activities += 1
+
+        for activity in db.query(Activity).all():
+            session_type = (activity.session_type or "").strip().lower()
+            if "tapis" in session_type:
+                activity.shoe_type = TREADMILL_SHOE
+            elif activity.started_at and activity.started_at.date().isoformat() >= ROAD_SHOE_START:
+                activity.shoe_type = ROAD_SHOE
+            else:
+                activity.shoe_type = None
 
         recalculate_training_history(db)
         db.commit()

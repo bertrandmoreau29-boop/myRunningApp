@@ -1022,6 +1022,19 @@ tbody tr.rest-row:hover {
   line-height: 1.3;
 }
 
+.shoe-config-row {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.shoe-config-row strong {
+  color: #226b45;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
 .config-grid input,
 .config-grid select,
 .side-config input,

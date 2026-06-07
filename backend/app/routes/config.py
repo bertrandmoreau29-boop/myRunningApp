@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import AppSetting, OptionValue
+from app.models import Activity, AppSetting, OptionValue
 from app.schemas import AppConfigRead, AppConfigUpdate, CycleOptionRead, OptionCreate, OptionRead
 
 
@@ -15,9 +15,9 @@ OPTION_CATEGORIES = {
     "shoe_type": "shoe_types",
     "cycle": "cycles",
 }
-DEFAULT_SETTING_BY_CATEGORY = {
-    "shoe_type": "default_shoe_type",
-    "cycle": "default_cycle",
+DEFAULT_SETTINGS_BY_CATEGORY = {
+    "shoe_type": ["default_shoe_type", "default_treadmill_shoe_type"],
+    "cycle": ["default_cycle"],
 }
 
 
@@ -56,16 +56,27 @@ def _cycle_options(db: Session) -> list[CycleOptionRead]:
     ]
 
 
+def _shoe_distances(db: Session) -> dict[str, float]:
+    rows = db.execute(
+        select(Activity.shoe_type, func.sum(Activity.total_distance))
+        .where(Activity.shoe_type.is_not(None), Activity.total_distance.is_not(None))
+        .group_by(Activity.shoe_type)
+    ).all()
+    return {shoe: round(float(distance or 0), 1) for shoe, distance in rows if shoe}
+
+
 @router.get("", response_model=AppConfigRead)
 def get_config(db: Session = Depends(get_db)) -> AppConfigRead:
     return AppConfigRead(
         default_ftp=int(_setting(db, "default_ftp", "221")),
         default_max_hr=int(_setting(db, "default_max_hr", "176")),
         default_shoe_type=_setting(db, "default_shoe_type", ""),
+        default_treadmill_shoe_type=_setting(db, "default_treadmill_shoe_type", "asics tapis"),
         default_cycle=_setting(db, "default_cycle", "Prepa_marathon_Lille_2026"),
         session_types=_options(db, "session_type"),
         route_locations=_options(db, "route_location"),
         shoe_types=_options(db, "shoe_type"),
+        shoe_distances=_shoe_distances(db),
         cycles=_cycle_options(db),
     )
 
@@ -78,6 +89,8 @@ def update_config(payload: AppConfigUpdate, db: Session = Depends(get_db)) -> Ap
         _set_setting(db, "default_max_hr", str(payload.default_max_hr))
     if payload.default_shoe_type is not None:
         _set_setting(db, "default_shoe_type", payload.default_shoe_type)
+    if payload.default_treadmill_shoe_type is not None:
+        _set_setting(db, "default_treadmill_shoe_type", payload.default_treadmill_shoe_type)
     if payload.default_cycle is not None:
         _set_setting(db, "default_cycle", payload.default_cycle)
     db.commit()
@@ -124,8 +137,8 @@ def delete_option(category: str, value: str, db: Session = Depends(get_db)) -> A
     if not option_value:
         raise HTTPException(status_code=400, detail="Valeur vide")
 
-    default_setting = DEFAULT_SETTING_BY_CATEGORY.get(category)
-    if default_setting and _setting(db, default_setting, "") == option_value:
+    default_settings = DEFAULT_SETTINGS_BY_CATEGORY.get(category) or []
+    if any(_setting(db, setting, "") == option_value for setting in default_settings):
         raise HTTPException(status_code=400, detail="Impossible de supprimer une valeur utilisee par defaut")
 
     option = db.scalar(

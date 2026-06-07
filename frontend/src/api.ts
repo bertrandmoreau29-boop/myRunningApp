@@ -196,10 +196,12 @@ export type AppConfig = {
   default_ftp: number;
   default_max_hr: number;
   default_shoe_type: string | null;
+  default_treadmill_shoe_type: string | null;
   default_cycle: string | null;
   session_types: string[];
   route_locations: string[];
   shoe_types: string[];
+  shoe_distances: Record<string, number>;
   cycles: CycleOption[];
 };
 
@@ -253,7 +255,9 @@ export function fetchConfig() {
 }
 
 export function updateConfig(
-  payload: Partial<Pick<AppConfig, "default_ftp" | "default_max_hr" | "default_shoe_type" | "default_cycle">>,
+  payload: Partial<
+    Pick<AppConfig, "default_ftp" | "default_max_hr" | "default_shoe_type" | "default_treadmill_shoe_type" | "default_cycle">
+  >,
 ) {
   return request<AppConfig>("/config", {
     method: "PATCH",

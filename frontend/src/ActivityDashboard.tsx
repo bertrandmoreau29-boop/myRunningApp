@@ -95,6 +95,11 @@ function HeaderTip({ label, tip }: { label: string; tip: string }) {
   );
 }
 
+function shoeMileage(appConfig: AppConfig | null, shoe: string | null | undefined) {
+  if (!shoe) return "-";
+  return formatDistance(appConfig?.shoe_distances?.[shoe] ?? 0);
+}
+
 export function ActivityDashboard() {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [trainingMetrics, setTrainingMetrics] = useState<TrainingMetrics | null>(null);
@@ -499,7 +504,9 @@ function DashboardContent({
   handleActivityUpdate: (activity: Activity, payload: Parameters<typeof updateActivity>[1]) => Promise<void>;
   onAddOption: (category: "session_type" | "route_location" | "shoe_type" | "cycle") => Promise<void>;
   onUpdateConfig: (
-    payload: Partial<Pick<AppConfig, "default_ftp" | "default_max_hr" | "default_shoe_type" | "default_cycle">>,
+    payload: Partial<
+      Pick<AppConfig, "default_ftp" | "default_max_hr" | "default_shoe_type" | "default_treadmill_shoe_type" | "default_cycle">
+    >,
   ) => Promise<void>;
   setEditingDistanceId: (id: number | null) => void;
 }) {
@@ -568,18 +575,38 @@ function DashboardContent({
             />
           </label>
           <label>
-            <span>Chaussures par defaut</span>
-            <select
-              value={appConfig?.default_shoe_type ?? ""}
-              onChange={(event) => void onUpdateConfig({ default_shoe_type: event.currentTarget.value })}
-            >
-              <option value="">-</option>
-              {(appConfig?.shoe_types ?? []).map((shoe) => (
-                <option key={shoe} value={shoe}>
-                  {shoe}
-                </option>
-              ))}
-            </select>
+            <span>Chaussures route</span>
+            <div className="shoe-config-row">
+              <select
+                value={appConfig?.default_shoe_type ?? ""}
+                onChange={(event) => void onUpdateConfig({ default_shoe_type: event.currentTarget.value })}
+              >
+                <option value="">-</option>
+                {(appConfig?.shoe_types ?? []).map((shoe) => (
+                  <option key={shoe} value={shoe}>
+                    {shoe}
+                  </option>
+                ))}
+              </select>
+              <strong>{shoeMileage(appConfig, appConfig?.default_shoe_type)}</strong>
+            </div>
+          </label>
+          <label>
+            <span>Chaussures tapis</span>
+            <div className="shoe-config-row">
+              <select
+                value={appConfig?.default_treadmill_shoe_type ?? ""}
+                onChange={(event) => void onUpdateConfig({ default_treadmill_shoe_type: event.currentTarget.value })}
+              >
+                <option value="">-</option>
+                {(appConfig?.shoe_types ?? []).map((shoe) => (
+                  <option key={shoe} value={shoe}>
+                    {shoe}
+                  </option>
+                ))}
+              </select>
+              <strong>{shoeMileage(appConfig, appConfig?.default_treadmill_shoe_type)}</strong>
+            </div>
           </label>
           <label>
             <span>Cycle en cours</span>
@@ -706,6 +733,7 @@ function DashboardContent({
                   <thead>
                     <tr>
                       <th>Cycle</th>
+                      <th>Chaussures</th>
                       <th>Date</th>
                       <th>Distance</th>
                       <th>Duree</th>
@@ -737,6 +765,7 @@ function DashboardContent({
                       if (activity.is_rest_day) {
                         return (
                           <tr key={activity.id} className="rest-row">
+                            <td>-</td>
                             <td>-</td>
                             <td>{formatDate(activity.started_at)}</td>
                             <td>-</td>
@@ -778,6 +807,14 @@ function DashboardContent({
                             appConfig={appConfig}
                             value={activity.cycle ?? appConfig?.default_cycle ?? null}
                             onChange={(value) => void handleActivityUpdate(activity, { cycle: value })}
+                          />
+                        </td>
+                        <td>
+                          <EditableSelect
+                            value={activity.shoe_type}
+                            options={appConfig?.shoe_types ?? []}
+                            onAdd={() => void onAddOption("shoe_type")}
+                            onChange={(value) => void handleActivityUpdate(activity, { shoe_type: value })}
                           />
                         </td>
                         <td>{formatDate(activity.started_at)}</td>
@@ -1296,7 +1333,9 @@ function ConfigPage({
   onDeleteOption: (category: "session_type" | "route_location" | "shoe_type" | "cycle", value: string) => Promise<void>;
   onRefresh: () => Promise<void>;
   onUpdateConfig: (
-    payload: Partial<Pick<AppConfig, "default_ftp" | "default_max_hr" | "default_shoe_type" | "default_cycle">>,
+    payload: Partial<
+      Pick<AppConfig, "default_ftp" | "default_max_hr" | "default_shoe_type" | "default_treadmill_shoe_type" | "default_cycle">
+    >,
   ) => Promise<void>;
 }) {
   return (
@@ -1337,18 +1376,38 @@ function ConfigPage({
             />
           </label>
           <label>
-            <span>Chaussures par defaut</span>
-            <select
-              value={appConfig?.default_shoe_type ?? ""}
-              onChange={(event) => void onUpdateConfig({ default_shoe_type: event.currentTarget.value })}
-            >
-              <option value="">-</option>
-              {(appConfig?.shoe_types ?? []).map((shoe) => (
-                <option key={shoe} value={shoe}>
-                  {shoe}
-                </option>
-              ))}
-            </select>
+            <span>Chaussures route</span>
+            <div className="shoe-config-row">
+              <select
+                value={appConfig?.default_shoe_type ?? ""}
+                onChange={(event) => void onUpdateConfig({ default_shoe_type: event.currentTarget.value })}
+              >
+                <option value="">-</option>
+                {(appConfig?.shoe_types ?? []).map((shoe) => (
+                  <option key={shoe} value={shoe}>
+                    {shoe}
+                  </option>
+                ))}
+              </select>
+              <strong>{shoeMileage(appConfig, appConfig?.default_shoe_type)}</strong>
+            </div>
+          </label>
+          <label>
+            <span>Chaussures tapis</span>
+            <div className="shoe-config-row">
+              <select
+                value={appConfig?.default_treadmill_shoe_type ?? ""}
+                onChange={(event) => void onUpdateConfig({ default_treadmill_shoe_type: event.currentTarget.value })}
+              >
+                <option value="">-</option>
+                {(appConfig?.shoe_types ?? []).map((shoe) => (
+                  <option key={shoe} value={shoe}>
+                    {shoe}
+                  </option>
+                ))}
+              </select>
+              <strong>{shoeMileage(appConfig, appConfig?.default_treadmill_shoe_type)}</strong>
+            </div>
           </label>
           <label>
             <span>Cycle en cours</span>
