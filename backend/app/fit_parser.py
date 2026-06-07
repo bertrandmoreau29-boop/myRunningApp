@@ -92,8 +92,11 @@ def _max_int(values: list[int | None]) -> int | None:
     return max(clean_values) if clean_values else None
 
 
-def _normalized_power(values: list[int | None], window_size: int = 30) -> int | None:
-    clean_values = [value if value is not None and value > 0 else 0 for value in values]
+def _normalized_power(values: list[int | None], window_size: int = 30, ignore_zero_gaps: bool = False) -> int | None:
+    if ignore_zero_gaps:
+        clean_values = [value for value in values if value is not None and value > 0]
+    else:
+        clean_values = [value if value is not None and value > 0 else 0 for value in values]
     if len(clean_values) < window_size:
         return _avg_int(values)
 
@@ -262,7 +265,10 @@ def parse_fit_file(path: Path) -> dict[str, Any]:
     record_temperatures = [_float(_get(record, "temperature", "Stryd Temperature")) for record in records]
     avg_power = (_positive_int(_get(session, "avg_power")) if not has_stryd_power else None) or _avg_int(record_powers)
     avg_heart_rate = _int(_get(session, "avg_heart_rate"))
-    normalized_power = (_positive_int(_get(session, "normalized_power")) if not has_stryd_power else None) or _normalized_power(record_powers)
+    normalized_power = (_positive_int(_get(session, "normalized_power")) if not has_stryd_power else None) or _normalized_power(
+        record_powers,
+        ignore_zero_gaps=has_stryd_power,
+    )
     threshold_power = _positive_int(
         _get(session, "threshold_power", "functional_threshold_power")
     ) or _positive_int(_get(zones_target, "functional_threshold_power", "threshold_power"))
@@ -356,7 +362,10 @@ def parse_fit_file(path: Path) -> dict[str, Any]:
         lap_avg_power = (
             _positive_int(_get(lap, "Lap Power")) if has_stryd_power else _positive_int(_get(lap, "avg_power", "Lap Power"))
         ) or _avg_int(lap_powers)
-        lap_normalized_power = (_positive_int(_get(lap, "normalized_power")) if not has_stryd_power else None) or _normalized_power(lap_powers)
+        lap_normalized_power = (_positive_int(_get(lap, "normalized_power")) if not has_stryd_power else None) or _normalized_power(
+            lap_powers,
+            ignore_zero_gaps=has_stryd_power,
+        )
         lap_efficiency_factor = _efficiency_factor(lap_normalized_power, lap_avg_heart_rate)
         lap_grade_adjusted_speed = _grade_adjusted_speed(lap_records, lap_avg_speed)
 
