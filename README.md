@@ -34,7 +34,8 @@ Le frontend ecoute sur `http://127.0.0.1:5173`.
 
 ## Import Strava
 
-Creer une application Strava puis definir les variables d'environnement avant de lancer le backend:
+Creer une application Strava puis saisir le Client ID et le Client Secret dans la fenetre `Importer Strava`.
+Alternative: definir les variables d'environnement avant de lancer le backend:
 
 ```powershell
 $env:STRAVA_CLIENT_ID="..."

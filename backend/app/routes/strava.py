@@ -25,7 +25,7 @@ from app.fit_parser import (
 )
 from app.models import Activity, AppSetting, Lap, Record
 from app.routes.activities import recalculate_training_history
-from app.schemas import StravaImportRequest, StravaImportResult, StravaStatus
+from app.schemas import StravaCredentialsUpdate, StravaImportRequest, StravaImportResult, StravaStatus
 
 
 router = APIRouter(prefix="/strava", tags=["strava"])
@@ -36,11 +36,19 @@ STRAVA_TOKEN_URL = "https://www.strava.com/oauth/token"
 STRAVA_SCOPE = "read,activity:read_all"
 
 
-def _client_id() -> str | None:
+def _client_id(db: Session | None = None) -> str | None:
+    if db is not None:
+        stored = _setting(db, "strava_client_id")
+        if stored:
+            return stored
     return os.getenv("STRAVA_CLIENT_ID")
 
 
-def _client_secret() -> str | None:
+def _client_secret(db: Session | None = None) -> str | None:
+    if db is not None:
+        stored = _setting(db, "strava_client_secret")
+        if stored:
+            return stored
     return os.getenv("STRAVA_CLIENT_SECRET")
 
 
@@ -75,8 +83,8 @@ def _json_request(url: str, method: str = "GET", token: str | None = None, data:
         raise HTTPException(status_code=502, detail=f"Erreur Strava: {detail}") from exc
 
 
-def _auth_url() -> str | None:
-    client_id = _client_id()
+def _auth_url(db: Session | None = None) -> str | None:
+    client_id = _client_id(db)
     if not client_id:
         return None
     query = urlencode(
@@ -115,15 +123,17 @@ def _access_token(db: Session) -> str:
     if expires_timestamp > int(datetime.utcnow().timestamp()) + 60:
         return access_token
 
-    if not _client_id() or not _client_secret():
+    client_id = _client_id(db)
+    client_secret = _client_secret(db)
+    if not client_id or not client_secret:
         raise HTTPException(status_code=400, detail="STRAVA_CLIENT_ID/STRAVA_CLIENT_SECRET manquants")
 
     payload = _json_request(
         STRAVA_TOKEN_URL,
         method="POST",
         data={
-            "client_id": _client_id(),
-            "client_secret": _client_secret(),
+            "client_id": client_id,
+            "client_secret": client_secret,
             "grant_type": "refresh_token",
             "refresh_token": refresh_token,
         },
@@ -345,22 +355,30 @@ def _lap_payloads(activity: dict[str, Any], detailed: dict[str, Any], records: l
 @router.get("/status", response_model=StravaStatus)
 def strava_status(db: Session = Depends(get_db)) -> StravaStatus:
     missing = []
-    if not _client_id():
+    if not _client_id(db):
         missing.append("STRAVA_CLIENT_ID")
-    if not _client_secret():
+    if not _client_secret(db):
         missing.append("STRAVA_CLIENT_SECRET")
     return StravaStatus(
         configured=not missing,
         connected=bool(_setting(db, "strava_refresh_token")),
-        auth_url=_auth_url(),
+        auth_url=_auth_url(db),
         missing=missing,
     )
 
 
+@router.patch("/credentials", response_model=StravaStatus)
+def update_strava_credentials(payload: StravaCredentialsUpdate, db: Session = Depends(get_db)) -> StravaStatus:
+    _set_setting(db, "strava_client_id", payload.client_id.strip())
+    _set_setting(db, "strava_client_secret", payload.client_secret.strip())
+    db.commit()
+    return strava_status(db)
+
+
 @router.get("/connect")
-def connect_strava() -> RedirectResponse:
-    auth_url = _auth_url()
-    if not auth_url or not _client_secret():
+def connect_strava(db: Session = Depends(get_db)) -> RedirectResponse:
+    auth_url = _auth_url(db)
+    if not auth_url or not _client_secret(db):
         raise HTTPException(status_code=400, detail="STRAVA_CLIENT_ID/STRAVA_CLIENT_SECRET manquants")
     return RedirectResponse(auth_url)
 
@@ -369,15 +387,17 @@ def connect_strava() -> RedirectResponse:
 def strava_callback(code: str | None = None, db: Session = Depends(get_db)) -> HTMLResponse:
     if not code:
         raise HTTPException(status_code=400, detail="Code Strava manquant")
-    if not _client_id() or not _client_secret():
+    client_id = _client_id(db)
+    client_secret = _client_secret(db)
+    if not client_id or not client_secret:
         raise HTTPException(status_code=400, detail="STRAVA_CLIENT_ID/STRAVA_CLIENT_SECRET manquants")
 
     payload = _json_request(
         STRAVA_TOKEN_URL,
         method="POST",
         data={
-            "client_id": _client_id(),
-            "client_secret": _client_secret(),
+            "client_id": client_id,
+            "client_secret": client_secret,
             "code": code,
             "grant_type": "authorization_code",
         },

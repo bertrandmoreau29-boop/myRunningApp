@@ -41,6 +41,7 @@ import {
   importStravaActivities,
   updateActivity,
   updateConfig,
+  updateStravaCredentials,
   updateThresholdPower,
   uploadFit,
 } from "./api";
@@ -247,6 +248,15 @@ export function ActivityDashboard() {
       setError(caught instanceof Error ? caught.message : "Erreur inconnue");
     } finally {
       setIsStravaImporting(false);
+    }
+  }
+
+  async function handleStravaCredentials(clientId: string, clientSecret: string) {
+    setError(null);
+    try {
+      setStravaStatus(await updateStravaCredentials({ client_id: clientId, client_secret: clientSecret }));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Erreur inconnue");
     }
   }
 
@@ -482,6 +492,7 @@ export function ActivityDashboard() {
         onAddOption={handleAddOption}
         onClose={() => setIsStravaModalOpen(false)}
         onImport={handleStravaImport}
+        onSaveCredentials={handleStravaCredentials}
         onRefreshStatus={refreshStravaStatus}
         result={stravaResult}
         status={stravaStatus}
@@ -1014,6 +1025,7 @@ function StravaImportModal({
   onClose,
   onImport,
   onRefreshStatus,
+  onSaveCredentials,
   result,
   status,
 }: {
@@ -1023,6 +1035,7 @@ function StravaImportModal({
   onClose: () => void;
   onImport: (payload: StravaImportPayload) => Promise<void>;
   onRefreshStatus: () => Promise<void>;
+  onSaveCredentials: (clientId: string, clientSecret: string) => Promise<void>;
   result: StravaImportResult | null;
   status: StravaStatus | null;
 }) {
@@ -1034,6 +1047,8 @@ function StravaImportModal({
   const [shoeType, setShoeType] = useState(appConfig?.default_shoe_type ?? "");
   const [cycle, setCycle] = useState(appConfig?.default_cycle ?? "");
   const [thresholdPower, setThresholdPower] = useState(appConfig?.default_ftp ?? 221);
+  const [clientId, setClientId] = useState("");
+  const [clientSecret, setClientSecret] = useState("");
 
   useEffect(() => {
     setShoeType(appConfig?.default_shoe_type ?? "");
@@ -1056,10 +1071,36 @@ function StravaImportModal({
         {!status ? (
           <p className="empty-state">Verification de la connexion Strava...</p>
         ) : !status.configured ? (
-          <div className="strava-warning">
-            <strong>Configuration Strava manquante</strong>
-            <span>Ajoute {status.missing.join(" et ")} dans l'environnement backend, puis redemarre le serveur.</span>
-          </div>
+          <>
+            <div className="strava-warning">
+              <strong>Configuration Strava manquante</strong>
+              <span>Saisis le Client ID et le Client Secret de ton application Strava. Pas ton mot de passe Strava.</span>
+            </div>
+            <div className="strava-grid">
+              <label>
+                <span>Client ID Strava</span>
+                <input value={clientId} onChange={(event) => setClientId(event.currentTarget.value)} />
+              </label>
+              <label>
+                <span>Client Secret Strava</span>
+                <input
+                  type="password"
+                  value={clientSecret}
+                  onChange={(event) => setClientSecret(event.currentTarget.value)}
+                />
+              </label>
+            </div>
+            <div className="modal-actions">
+              <button
+                className="add-button"
+                disabled={!clientId.trim() || !clientSecret.trim()}
+                type="button"
+                onClick={() => void onSaveCredentials(clientId.trim(), clientSecret.trim())}
+              >
+                Enregistrer la configuration
+              </button>
+            </div>
+          </>
         ) : !status.connected ? (
           <div className="strava-connect">
             <p>Connecte ton compte Strava avant de lancer l'import.</p>

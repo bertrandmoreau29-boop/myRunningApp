@@ -215,6 +215,11 @@ export type StravaImportPayload = {
   threshold_power: number;
 };
 
+export type StravaCredentialsPayload = {
+  client_id: string;
+  client_secret: string;
+};
+
 export type StravaImportResult = {
   imported_count: number;
   skipped_count: number;
@@ -312,6 +317,14 @@ export function fetchTrainingFractions() {
 
 export function fetchStravaStatus() {
   return request<StravaStatus>("/strava/status");
+}
+
+export function updateStravaCredentials(payload: StravaCredentialsPayload) {
+  return request<StravaStatus>("/strava/credentials", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
 }
 
 export function importStravaActivities(payload: StravaImportPayload) {

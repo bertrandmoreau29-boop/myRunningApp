@@ -155,6 +155,11 @@ class StravaStatus(BaseModel):
     missing: list[str] = Field(default_factory=list)
 
 
+class StravaCredentialsUpdate(BaseModel):
+    client_id: str = Field(min_length=1, max_length=80)
+    client_secret: str = Field(min_length=1, max_length=200)
+
+
 class StravaImportRequest(BaseModel):
     start_date: date
     end_date: date
