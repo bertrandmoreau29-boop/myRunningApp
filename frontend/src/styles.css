@@ -148,7 +148,7 @@ h1 {
   align-items: stretch;
   display: grid;
   gap: 14px;
-  grid-template-columns: 220px 132px minmax(0, 560px) minmax(430px, 1fr);
+  grid-template-columns: 220px 118px minmax(640px, 1fr) 560px;
   justify-content: center;
   margin: 0 auto 18px;
   max-width: 1840px;
@@ -980,8 +980,8 @@ tbody tr.selected {
 .hr-scale-row {
   align-items: center;
   display: grid;
-  gap: 7px;
-  grid-template-columns: 38px 1fr 42px;
+  gap: 6px;
+  grid-template-columns: 34px 1fr 36px;
 }
 
 .hr-scale-row span,
@@ -1014,7 +1014,7 @@ tbody tr.selected {
   align-items: start;
   display: grid;
   gap: 12px;
-  grid-template-columns: minmax(150px, 0.85fr) minmax(230px, 1.15fr);
+  grid-template-columns: 170px minmax(0, 1fr);
 }
 
 .quality-main {
@@ -1101,15 +1101,15 @@ tbody tr.selected {
 .zone-list li {
   align-items: center;
   display: grid;
-  gap: 8px;
-  grid-template-columns: 24px minmax(0, 1fr) auto;
+  gap: 7px;
+  grid-template-columns: 22px minmax(120px, 1fr) 64px;
 }
 
 .zone-line {
   border-radius: 999px;
   display: block;
   height: 4px;
-  width: 24px;
+  width: 22px;
 }
 
 .zone-list div {
@@ -1129,6 +1129,7 @@ tbody tr.selected {
   font-size: 12px;
   font-style: normal;
   font-weight: 800;
+  text-align: right;
 }
 
 .comment-box {
