@@ -36,7 +36,6 @@ def init_db() -> None:
 def _ensure_sqlite_columns() -> None:
     additions = {
         "activities": {
-            "strava_activity_id": "INTEGER",
             "session_type": "VARCHAR(160)",
             "route_location": "VARCHAR(160)",
             "shoe_type": "VARCHAR(160)",
@@ -57,6 +56,7 @@ def _ensure_sqlite_columns() -> None:
             "form": "FLOAT",
             "fatigue": "FLOAT",
             "avg_ground_contact_time": "FLOAT",
+            "avg_temperature": "FLOAT",
         },
         "laps": {
             "avg_power": "INTEGER",
@@ -66,6 +66,7 @@ def _ensure_sqlite_columns() -> None:
             "power_grade_adjusted_speed_ratio": "FLOAT",
             "efficiency_grade_adjusted_speed_ratio": "FLOAT",
             "avg_ground_contact_time": "FLOAT",
+            "avg_temperature": "FLOAT",
         },
         "records": {
             "power": "INTEGER",

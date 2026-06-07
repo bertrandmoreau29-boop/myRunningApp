@@ -1,6 +1,6 @@
 # MonAppliRunning
 
-Application locale pour importer des fichiers Garmin FIT, les decoder cote serveur, stocker les donnees en SQLite, puis les consulter dans un client web.
+Application locale pour importer des fichiers FIT/ZIP Garmin ou Stryd, les decoder cote serveur, stocker les donnees en SQLite, puis les consulter dans un client web.
 
 ## Stack
 
@@ -32,19 +32,10 @@ Le frontend ecoute sur `http://127.0.0.1:5173`.
 - `GET /api/activities/{activity_id}/laps` tours/laps
 - `GET /api/activities/{activity_id}/records` points temporels
 
-## Import Strava
+## Import Garmin / Stryd
 
-Creer une application Strava puis saisir le Client ID et le Client Secret dans la fenetre `Importer Strava`.
-Alternative: definir les variables d'environnement avant de lancer le backend:
+Le bouton `Importer FIT / ZIP Garmin-Stryd` ouvre une fenetre de preparation avant chaque import.
+Il faut selectionner le fichier, puis renseigner la chaussure, le cycle et la FTP a appliquer aux seances importees.
 
-```powershell
-$env:STRAVA_CLIENT_ID="..."
-$env:STRAVA_CLIENT_SECRET="..."
-$env:STRAVA_REDIRECT_URI="http://127.0.0.1:8000/api/strava/callback"
-```
-
-Dans l'application Strava, l'Authorization Callback Domain doit correspondre au domaine du backend local ou heberge.
-En local, utiliser `127.0.0.1`.
-
-Le bouton `Importer Strava` ouvre une fenetre de preparation: dates debut/fin, chaussure, cycle et FTP a appliquer aux seances importees.
-Les doublons Strava ou les activites deja importees depuis FIT avec date/distance proches sont ignorees avec un warning.
+Les ZIP peuvent contenir plusieurs fichiers FIT. Les ZIP imbriques sont aussi explores, ce qui permet d'importer plus facilement certains exports Garmin complets.
+Les fichiers Stryd sans trace GPS sont automatiquement classes en type de seance `Tapis endurance`.

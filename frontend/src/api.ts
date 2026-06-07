@@ -35,6 +35,7 @@ export type Activity = {
   form: number | null;
   fatigue: number | null;
   avg_ground_contact_time: number | null;
+  avg_temperature: number | null;
   ascent: number | null;
   descent: number | null;
   created_at: string;
@@ -63,6 +64,7 @@ export type Lap = {
   power_grade_adjusted_speed_ratio: number | null;
   efficiency_grade_adjusted_speed_ratio: number | null;
   avg_ground_contact_time: number | null;
+  avg_temperature: number | null;
 };
 
 export type RecordPoint = {
@@ -200,31 +202,10 @@ export type AppConfig = {
   cycles: CycleOption[];
 };
 
-export type StravaStatus = {
-  configured: boolean;
-  connected: boolean;
-  auth_url: string | null;
-  missing: string[];
-};
-
-export type StravaImportPayload = {
-  start_date: string;
-  end_date: string;
+export type FitUploadOptions = {
   shoe_type: string | null;
   cycle: string | null;
   threshold_power: number;
-};
-
-export type StravaCredentialsPayload = {
-  client_id: string;
-  client_secret: string;
-};
-
-export type StravaImportResult = {
-  imported_count: number;
-  skipped_count: number;
-  warnings: string[];
-  imported_activity_ids: number[];
 };
 
 export type ActivityUpdate = Partial<{
@@ -315,29 +296,12 @@ export function fetchTrainingFractions() {
   return request<TrainingFractions>("/training/fractions");
 }
 
-export function fetchStravaStatus() {
-  return request<StravaStatus>("/strava/status");
-}
-
-export function updateStravaCredentials(payload: StravaCredentialsPayload) {
-  return request<StravaStatus>("/strava/credentials", {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-}
-
-export function importStravaActivities(payload: StravaImportPayload) {
-  return request<StravaImportResult>("/strava/import", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-}
-
-export function uploadFit(file: File) {
+export function uploadFit(file: File, options: FitUploadOptions) {
   const form = new FormData();
   form.append("file", file);
+  form.append("threshold_power", String(options.threshold_power));
+  if (options.shoe_type) form.append("shoe_type", options.shoe_type);
+  if (options.cycle) form.append("cycle", options.cycle);
   return request<Activity>("/activities/upload", {
     method: "POST",
     body: form,

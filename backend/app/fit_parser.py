@@ -220,6 +220,10 @@ def _avg_float(values: list[float | None]) -> float | None:
     return sum(clean_values) / len(clean_values)
 
 
+def _has_gps(records: list[dict[str, Any]]) -> bool:
+    return any(record.get("latitude") is not None and record.get("longitude") is not None for record in records)
+
+
 def _json_safe(value: Any) -> Any:
     if isinstance(value, datetime):
         return value.isoformat()
@@ -253,6 +257,7 @@ def parse_fit_file(path: Path) -> dict[str, Any]:
     record_ground_contact_times = [
         _float(_get(record, "stance_time", "ground_contact_time")) for record in records
     ]
+    record_temperatures = [_float(_get(record, "temperature", "Stryd Temperature")) for record in records]
     avg_power = _positive_int(_get(session, "avg_power")) or _avg_int(record_powers)
     avg_heart_rate = _int(_get(session, "avg_heart_rate"))
     normalized_power = _positive_int(_get(session, "normalized_power")) or _normalized_power(record_powers)
@@ -296,6 +301,7 @@ def parse_fit_file(path: Path) -> dict[str, Any]:
             _float(_get(session, "avg_stance_time", "avg_ground_contact_time"))
             or _avg_int(record_ground_contact_times)
         ),
+        "avg_temperature": _avg_float(record_temperatures),
         "ascent": _float(_get(session, "total_ascent")),
         "descent": _float(_get(session, "total_descent")),
         "raw_summary": json.dumps({key: _json_safe(value) for key, value in session.items()}, ensure_ascii=True),
@@ -314,7 +320,7 @@ def parse_fit_file(path: Path) -> dict[str, Any]:
             "altitude": _float(_get(record, "altitude", "enhanced_altitude")),
             "latitude": _latlon(_get(record, "position_lat")),
             "longitude": _latlon(_get(record, "position_long")),
-            "temperature": _int(_get(record, "temperature")),
+            "temperature": _int(_get(record, "temperature", "Stryd Temperature")),
         }
         for index, record in enumerate(records, start=1)
     ]
@@ -329,6 +335,8 @@ def parse_fit_file(path: Path) -> dict[str, Any]:
         summary["efficiency_factor"],
         summary_grade_adjusted_speed,
     )
+    if not _has_gps(parsed_records):
+        summary["session_type"] = "Tapis endurance"
 
     parsed_laps = []
     for index, lap in enumerate(laps, start=1):
@@ -336,6 +344,7 @@ def parse_fit_file(path: Path) -> dict[str, Any]:
         lap_cadences = [record["cadence"] for record in lap_records]
         lap_powers = [record["power"] for record in lap_records]
         lap_ground_contact_times = [record["ground_contact_time"] for record in lap_records]
+        lap_temperatures = [record["temperature"] for record in lap_records]
         lap_avg_speed = _avg_speed(
             _get(lap, "total_distance"),
             _get(lap, "total_timer_time"),
@@ -376,6 +385,7 @@ def parse_fit_file(path: Path) -> dict[str, Any]:
             ),
             "avg_ground_contact_time": _float(_get(lap, "avg_stance_time", "avg_ground_contact_time"))
             or _avg_float(lap_ground_contact_times),
+            "avg_temperature": _avg_float(lap_temperatures),
             }
         )
 

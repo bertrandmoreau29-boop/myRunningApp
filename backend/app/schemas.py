@@ -1,6 +1,4 @@
 from datetime import datetime
-from datetime import date
-
 from pydantic import BaseModel, ConfigDict
 from pydantic import Field
 
@@ -10,7 +8,6 @@ class ActivitySummary(BaseModel):
 
     id: int
     filename: str
-    strava_activity_id: int | None = None
     sport: str | None = None
     sub_sport: str | None = None
     session_type: str | None = None
@@ -43,6 +40,7 @@ class ActivitySummary(BaseModel):
     form: float | None = None
     fatigue: float | None = None
     avg_ground_contact_time: float | None = None
+    avg_temperature: float | None = None
     ascent: float | None = None
     descent: float | None = None
     created_at: datetime
@@ -128,6 +126,7 @@ class LapRead(BaseModel):
     power_grade_adjusted_speed_ratio: float | None = None
     efficiency_grade_adjusted_speed_ratio: float | None = None
     avg_ground_contact_time: float | None = None
+    avg_temperature: float | None = None
 
 
 class RecordRead(BaseModel):
@@ -147,29 +146,3 @@ class RecordRead(BaseModel):
     longitude: float | None = None
     temperature: int | None = None
 
-
-class StravaStatus(BaseModel):
-    configured: bool
-    connected: bool
-    auth_url: str | None = None
-    missing: list[str] = Field(default_factory=list)
-
-
-class StravaCredentialsUpdate(BaseModel):
-    client_id: str = Field(min_length=1, max_length=80)
-    client_secret: str = Field(min_length=1, max_length=200)
-
-
-class StravaImportRequest(BaseModel):
-    start_date: date
-    end_date: date
-    shoe_type: str | None = None
-    cycle: str | None = None
-    threshold_power: int = Field(ge=1, le=2000)
-
-
-class StravaImportResult(BaseModel):
-    imported_count: int
-    skipped_count: int
-    warnings: list[str] = Field(default_factory=list)
-    imported_activity_ids: list[int] = Field(default_factory=list)

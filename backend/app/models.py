@@ -11,7 +11,6 @@ class Activity(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     filename: Mapped[str] = mapped_column(String(255), nullable=False)
-    strava_activity_id: Mapped[int | None] = mapped_column(Integer, index=True)
     sport: Mapped[str | None] = mapped_column(String(80))
     sub_sport: Mapped[str | None] = mapped_column(String(80))
     session_type: Mapped[str | None] = mapped_column(String(160))
@@ -44,6 +43,7 @@ class Activity(Base):
     form: Mapped[float | None] = mapped_column(Float)
     fatigue: Mapped[float | None] = mapped_column(Float)
     avg_ground_contact_time: Mapped[float | None] = mapped_column(Float)
+    avg_temperature: Mapped[float | None] = mapped_column(Float)
     ascent: Mapped[float | None] = mapped_column(Float)
     descent: Mapped[float | None] = mapped_column(Float)
     raw_summary: Mapped[str | None] = mapped_column(Text)
@@ -76,6 +76,7 @@ class Lap(Base):
     power_grade_adjusted_speed_ratio: Mapped[float | None] = mapped_column(Float)
     efficiency_grade_adjusted_speed_ratio: Mapped[float | None] = mapped_column(Float)
     avg_ground_contact_time: Mapped[float | None] = mapped_column(Float)
+    avg_temperature: Mapped[float | None] = mapped_column(Float)
 
     activity: Mapped[Activity] = relationship(back_populates="laps")
 

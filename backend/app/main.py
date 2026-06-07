@@ -4,7 +4,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.database import init_db
 from app.routes.activities import router as activities_router
 from app.routes.config import router as config_router
-from app.routes.strava import router as strava_router
 from app.routes.training import router as training_router
 
 
@@ -31,5 +30,4 @@ def health() -> dict[str, str]:
 
 app.include_router(activities_router, prefix="/api")
 app.include_router(config_router, prefix="/api")
-app.include_router(strava_router, prefix="/api")
 app.include_router(training_router, prefix="/api")

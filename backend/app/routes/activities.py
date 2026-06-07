@@ -1,9 +1,10 @@
+from io import BytesIO
 from pathlib import Path
 from datetime import date, timedelta
 from uuid import uuid4
 from zipfile import BadZipFile, ZipFile
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -140,14 +141,25 @@ def _previous_threshold_power(db: Session, started_at: object) -> int | None:
     )
 
 
-def _create_activity_from_fit(path: Path, original_filename: str, db: Session) -> tuple[Activity, int, int]:
+def _create_activity_from_fit(
+    path: Path,
+    original_filename: str,
+    db: Session,
+    threshold_power: int | None = None,
+    shoe_type: str | None = None,
+    cycle: str | None = None,
+) -> tuple[Activity, int, int]:
     try:
         parsed = parse_fit_file(path)
     except Exception as exc:  # fitparse exposes several low-level exceptions depending on the file.
         path.unlink(missing_ok=True)
         raise HTTPException(status_code=400, detail=f"Fichier FIT illisible ({original_filename}): {exc}") from exc
 
-    default_threshold = _default_threshold_power(db) or _previous_threshold_power(db, parsed["summary"].get("started_at"))
+    default_threshold = (
+        threshold_power
+        or _default_threshold_power(db)
+        or _previous_threshold_power(db, parsed["summary"].get("started_at"))
+    )
     if default_threshold is not None:
         parsed["summary"]["threshold_power"] = default_threshold
         parsed["summary"]["intensity_factor"] = _intensity_factor(
@@ -160,8 +172,8 @@ def _create_activity_from_fit(path: Path, original_filename: str, db: Session) -
             default_threshold,
         )
 
-    parsed["summary"]["shoe_type"] = _default_shoe_type(db)
-    parsed["summary"]["cycle"] = _default_cycle(db)
+    parsed["summary"]["shoe_type"] = shoe_type or _default_shoe_type(db)
+    parsed["summary"]["cycle"] = cycle or _default_cycle(db)
     activity = Activity(filename=original_filename, **parsed["summary"])
     db.add(activity)
     db.flush()
@@ -179,8 +191,29 @@ def _store_fit_bytes(content: bytes, original_filename: str) -> Path:
     return stored_path
 
 
+def _fit_files_from_zip(content: bytes) -> list[tuple[str, bytes]]:
+    fit_files: list[tuple[str, bytes]] = []
+    with ZipFile(BytesIO(content)) as archive:
+        for member in archive.infolist():
+            if member.is_dir():
+                continue
+            member_name = Path(member.filename).name
+            member_content = archive.read(member)
+            if member_name.lower().endswith(".fit"):
+                fit_files.append((member_name, member_content))
+            elif member_name.lower().endswith(".zip"):
+                fit_files.extend(_fit_files_from_zip(member_content))
+    return fit_files
+
+
 @router.post("/upload", response_model=ActivityDetail)
-async def upload_activity(file: UploadFile = File(...), db: Session = Depends(get_db)) -> ActivityDetail:
+async def upload_activity(
+    file: UploadFile = File(...),
+    threshold_power: int | None = Form(None),
+    shoe_type: str | None = Form(None),
+    cycle: str | None = Form(None),
+    db: Session = Depends(get_db),
+) -> ActivityDetail:
     if not file.filename:
         raise HTTPException(status_code=400, detail="Nom de fichier manquant")
 
@@ -190,26 +223,40 @@ async def upload_activity(file: UploadFile = File(...), db: Session = Depends(ge
 
     content = await file.read()
     imported: list[tuple[Activity, int, int]] = []
+    clean_shoe_type = shoe_type.strip() if shoe_type else None
+    clean_cycle = cycle.strip() if cycle else None
 
     if lower_filename.endswith(".fit"):
         stored_path = _store_fit_bytes(content, file.filename)
-        imported.append(_create_activity_from_fit(stored_path, file.filename, db))
+        imported.append(
+            _create_activity_from_fit(
+                stored_path,
+                file.filename,
+                db,
+                threshold_power=threshold_power,
+                shoe_type=clean_shoe_type,
+                cycle=clean_cycle,
+            )
+        )
     else:
         zip_path = _store_fit_bytes(content, file.filename)
         try:
-            with ZipFile(zip_path) as archive:
-                fit_members = [
-                    member
-                    for member in archive.infolist()
-                    if not member.is_dir() and Path(member.filename).name.lower().endswith(".fit")
-                ]
-                if not fit_members:
-                    raise HTTPException(status_code=400, detail="Aucun fichier .fit trouve dans le zip")
+            fit_files = _fit_files_from_zip(content)
+            if not fit_files:
+                raise HTTPException(status_code=400, detail="Aucun fichier .fit trouve dans le zip")
 
-                for member in fit_members:
-                    fit_name = Path(member.filename).name
-                    stored_path = _store_fit_bytes(archive.read(member), fit_name)
-                    imported.append(_create_activity_from_fit(stored_path, fit_name, db))
+            for fit_name, fit_content in fit_files:
+                stored_path = _store_fit_bytes(fit_content, fit_name)
+                imported.append(
+                    _create_activity_from_fit(
+                        stored_path,
+                        fit_name,
+                        db,
+                        threshold_power=threshold_power,
+                        shoe_type=clean_shoe_type,
+                        cycle=clean_cycle,
+                    )
+                )
         except BadZipFile as exc:
             zip_path.unlink(missing_ok=True)
             raise HTTPException(status_code=400, detail="Fichier zip illisible") from exc

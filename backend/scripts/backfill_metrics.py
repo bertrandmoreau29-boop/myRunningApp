@@ -12,6 +12,7 @@ from app.fit_parser import _grade_adjusted_speed
 from app.fit_parser import _intensity_factor
 from app.fit_parser import _power_grade_adjusted_speed_ratio
 from app.fit_parser import _training_stress_score
+from app.fit_parser import _avg_float
 from app.models import Activity, Lap, Record
 from app.routes.activities import recalculate_training_history
 
@@ -35,6 +36,7 @@ def _record_dict(record: Record) -> dict[str, object]:
         "distance": record.distance,
         "speed": record.speed,
         "altitude": record.altitude,
+        "temperature": record.temperature,
     }
 
 
@@ -62,6 +64,7 @@ def _backfill_from_records(db, activity: Activity) -> int:
         activity.efficiency_factor,
         activity.grade_adjusted_speed,
     )
+    activity.avg_temperature = _avg_float([record.temperature for record in records])
 
     laps = db.query(Lap).filter(Lap.activity_id == activity.id).order_by(Lap.lap_index).all()
     for lap in laps:
@@ -75,6 +78,7 @@ def _backfill_from_records(db, activity: Activity) -> int:
             lap_efficiency,
             lap.grade_adjusted_speed,
         )
+        lap.avg_temperature = _avg_float([record.get("temperature") for record in _records_for_lap(lap, records)])
 
     return len(records)
 
@@ -106,6 +110,7 @@ def main() -> None:
                 "power_grade_adjusted_speed_ratio",
                 "efficiency_grade_adjusted_speed_ratio",
                 "avg_ground_contact_time",
+                "avg_temperature",
             ):
                 value = summary.get(field)
                 if value is not None:
@@ -137,6 +142,7 @@ def main() -> None:
                     "grade_adjusted_speed",
                     "power_grade_adjusted_speed_ratio",
                     "efficiency_grade_adjusted_speed_ratio",
+                    "avg_temperature",
                 ):
                     value = parsed_lap.get(field)
                     if value is not None:
