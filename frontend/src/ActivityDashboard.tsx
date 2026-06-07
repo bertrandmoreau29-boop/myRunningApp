@@ -446,6 +446,24 @@ function DashboardContent({
   ) => Promise<void>;
   setEditingDistanceId: (id: number | null) => void;
 }) {
+  const [commentActivity, setCommentActivity] = useState<Activity | null>(null);
+  const [commentDraft, setCommentDraft] = useState("");
+
+  function openCommentModal(activity: Activity) {
+    setCommentActivity(activity);
+    setCommentDraft(activity.comment ?? "");
+  }
+
+  async function saveComment() {
+    if (!commentActivity) return;
+    await handleActivityUpdate(commentActivity, { comment: commentDraft });
+    setCommentActivity(null);
+  }
+
+  function activityForWeekDay(date: string) {
+    return sortedActivities.find((activity) => activity.started_at?.slice(0, 10) === date) ?? null;
+  }
+
   return (
     <>
       <section className="training-widget" aria-label="Metriques TrainingPeaks">
@@ -555,8 +573,19 @@ function DashboardContent({
           </div>
           <p className="weekly-chart-label">{weeklyMetricLabel}</p>
           <div className="weekly-bars">
-            {(weeklyTss?.days ?? []).map((day) => (
-              <article className="weekly-bar" key={day.date}>
+            {(weeklyTss?.days ?? []).map((day) => {
+              const dayActivity = activityForWeekDay(day.date);
+              return (
+              <button
+                className={dayActivity?.id === selectedId ? "weekly-bar selected" : "weekly-bar"}
+                disabled={!dayActivity}
+                key={day.date}
+                onClick={() => {
+                  if (dayActivity) setSelectedId(dayActivity.id);
+                }}
+                title={dayActivity ? "Selectionner la seance" : "Aucune seance ce jour"}
+                type="button"
+              >
                 <div className="weekly-bar-track">
                   <div
                     className="weekly-bar-fill"
@@ -565,9 +594,11 @@ function DashboardContent({
                 </div>
                 <strong>{formatWeeklyValue(day[weeklyMetric])}</strong>
                 <span>{day.label}</span>
-              </article>
-            ))}
+              </button>
+              );
+            })}
           </div>
+          {detail.activity && <WeeklySelectedActivity activity={detail.activity} />}
         </div>
 
         <EnduranceQualityWidget distribution={weeklyHrDistribution} />
@@ -586,7 +617,10 @@ function DashboardContent({
       <section className="workspace">
         <div className="panel activities-panel">
           <div className="panel-header">
-            <h2>Activites</h2>
+            <div className="panel-title-inline">
+              <h2>Activites</h2>
+              <span>{activities.length} seance{activities.length > 1 ? "s" : ""}</span>
+            </div>
             <div className="panel-actions">
               <button
                 className="icon-button"
@@ -616,6 +650,7 @@ function DashboardContent({
                       <th>Duree</th>
                       <th>Type de seance</th>
                       <th>Cycle</th>
+                      <th>Commentaire</th>
                       <th>Lieu/parcours</th>
                       <th>Allure</th>
                       <th>FC moy.</th>
@@ -668,6 +703,18 @@ function DashboardContent({
                           />
                         </td>
                         <td>
+                          <button
+                            className={activity.comment ? "comment-pill filled" : "comment-pill"}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              openCommentModal(activity);
+                            }}
+                            type="button"
+                          >
+                            {activity.comment ? "Voir" : "Ajouter"}
+                          </button>
+                        </td>
+                        <td>
                           <EditableSelect
                             value={activity.route_location}
                             options={appConfig?.route_locations ?? []}
@@ -713,24 +760,12 @@ function DashboardContent({
           )}
         </div>
 
-        <div className="panel detail-panel">
+        <div className="panel laps-panel">
           <div className="panel-header">
-            <h2>Commentaire</h2>
+            <h2>Tours</h2>
             <span>{detail.activity ? formatDate(detail.activity.started_at) : "-"}</span>
           </div>
 
-          <textarea
-            className="comment-box"
-            placeholder="Commentaire de seance"
-            defaultValue={detail.activity?.comment ?? ""}
-            key={detail.activity?.id ?? "empty-comment"}
-            onBlur={(event) => {
-              if (!detail.activity) return;
-              void handleActivityUpdate(detail.activity, { comment: event.currentTarget.value });
-            }}
-          />
-
-          <h3>Tours</h3>
           <div className="table-scroll compact">
             <table>
               <thead>
@@ -817,7 +852,68 @@ function DashboardContent({
           </section>
         </div>
       </section>
+      {commentActivity && (
+        <div className="modal-backdrop" role="presentation" onMouseDown={() => setCommentActivity(null)}>
+          <div className="comment-modal" role="dialog" aria-modal="true" onMouseDown={(event) => event.stopPropagation()}>
+            <div className="panel-header">
+              <div>
+                <h2>Commentaire</h2>
+                <span>{formatDate(commentActivity.started_at)}</span>
+              </div>
+            </div>
+            <textarea
+              autoFocus
+              className="comment-modal-input"
+              onChange={(event) => setCommentDraft(event.currentTarget.value)}
+              value={commentDraft}
+            />
+            <div className="modal-actions">
+              <button className="secondary-button" type="button" onClick={() => setCommentActivity(null)}>
+                Annuler
+              </button>
+              <button className="add-button" type="button" onClick={() => void saveComment()}>
+                Enregistrer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
+  );
+}
+
+function WeeklySelectedActivity({ activity }: { activity: Activity }) {
+  return (
+    <div className="weekly-selected-activity">
+      <div>
+        <span>Seance selectionnee</span>
+        <strong>{formatDate(activity.started_at)}</strong>
+      </div>
+      <div>
+        <span>Distance</span>
+        <strong>{formatDistance(activity.total_distance)}</strong>
+      </div>
+      <div>
+        <span>Duree</span>
+        <strong>{formatDuration(activity.total_timer_time)}</strong>
+      </div>
+      <div>
+        <span>Allure</span>
+        <strong>{formatPace(activity.avg_speed)}</strong>
+      </div>
+      <div>
+        <span>FC</span>
+        <strong>{formatNumber(activity.avg_heart_rate, " bpm")}</strong>
+      </div>
+      <div>
+        <span>Puissance</span>
+        <strong>{formatNumber(activity.avg_power, " W")}</strong>
+      </div>
+      <div>
+        <span>TSS</span>
+        <strong>{formatDecimal(activity.training_stress_score, 1)}</strong>
+      </div>
+    </div>
   );
 }
 
@@ -856,37 +952,41 @@ function EnduranceQualityWidget({ distribution }: { distribution: WeeklyHrDistri
         <h2>Endurance / Qualite</h2>
         <span>cible 90 / 10</span>
       </div>
-      <div className="quality-ratio">
-        <strong>{enduranceRatio.toFixed(0)}%</strong>
-        <span>{qualityRatio.toFixed(0)}%</span>
-      </div>
-      <div className="quality-bar" aria-hidden="true">
-        <div className="quality-bar-endurance" style={{ width: `${Math.min(100, enduranceRatio)}%` }} />
-        <div className="quality-bar-quality" style={{ width: `${Math.min(100, qualityRatio)}%` }} />
-      </div>
-      <p className="quality-tips">tips</p>
-      <div className="quality-times">
-        <div>
-          <span>Endurance</span>
-          <strong>{formatDuration(distribution?.endurance_seconds ?? null)}</strong>
-        </div>
-        <div>
-          <span>Qualite ponderee</span>
-          <strong>{formatDuration(distribution?.quality_weighted_seconds ?? null)}</strong>
-        </div>
-      </div>
-      <ul className="zone-list">
-        {(distribution?.zones ?? []).map((zone) => (
-          <li key={zone.key}>
-            <span className="zone-line" style={{ backgroundColor: zone.color }} />
+      <div className="quality-layout">
+        <div className="quality-main">
+          <div className="quality-ratio">
+            <strong>{enduranceRatio.toFixed(0)}%</strong>
+            <span>{qualityRatio.toFixed(0)}%</span>
+          </div>
+          <div className="quality-bar" aria-hidden="true">
+            <div className="quality-bar-endurance" style={{ width: `${Math.min(100, enduranceRatio)}%` }} />
+            <div className="quality-bar-quality" style={{ width: `${Math.min(100, qualityRatio)}%` }} />
+          </div>
+          <p className="quality-tips">tips</p>
+          <div className="quality-times">
             <div>
-              <strong>{zone.label}</strong>
-              <span>{zone.range}</span>
+              <span>Endurance</span>
+              <strong>{formatDuration(distribution?.endurance_seconds ?? null)}</strong>
             </div>
-            <em>{formatDuration(zone.seconds)}</em>
-          </li>
-        ))}
-      </ul>
+            <div>
+              <span>Qualite ponderee</span>
+              <strong>{formatDuration(distribution?.quality_weighted_seconds ?? null)}</strong>
+            </div>
+          </div>
+        </div>
+        <ul className="zone-list">
+          {(distribution?.zones ?? []).map((zone) => (
+            <li key={zone.key}>
+              <span className="zone-line" style={{ backgroundColor: zone.color }} />
+              <div>
+                <strong>{zone.label}</strong>
+                <span>{zone.range}</span>
+              </div>
+              <em>{formatDuration(zone.seconds)}</em>
+            </li>
+          ))}
+        </ul>
+      </div>
     </aside>
   );
 }
