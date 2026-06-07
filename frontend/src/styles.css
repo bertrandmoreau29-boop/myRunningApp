@@ -644,6 +644,27 @@ tbody tr.selected {
   background: #eef6f0;
 }
 
+tbody tr.rest-row {
+  background: #fafcfb;
+  color: #7a8680;
+  cursor: default;
+}
+
+tbody tr.rest-row:hover {
+  background: #fafcfb;
+}
+
+.rest-pill {
+  background: #eef2ef;
+  border: 1px solid #dbe4dd;
+  border-radius: 999px;
+  color: #59655f;
+  display: inline-flex;
+  font-weight: 800;
+  min-height: 26px;
+  padding: 3px 10px;
+}
+
 .empty-state {
   color: #66736b;
   padding: 22px 4px;

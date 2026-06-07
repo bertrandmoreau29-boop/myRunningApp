@@ -3,6 +3,7 @@ export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0
 export type Activity = {
   id: number;
   filename: string;
+  is_rest_day: boolean;
   sport: string | null;
   sub_sport: string | null;
   session_type: string | null;

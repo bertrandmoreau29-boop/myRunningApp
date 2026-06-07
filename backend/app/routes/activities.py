@@ -1,6 +1,6 @@
 from io import BytesIO
 from pathlib import Path
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta
 from uuid import uuid4
 from zipfile import BadZipFile, ZipFile
 
@@ -40,6 +40,22 @@ def _detail(activity: Activity, lap_count: int, record_count: int) -> ActivityDe
     return ActivityDetail.model_validate(data)
 
 
+def _rest_summary(rest_day: date, fitness: float, form: float, fatigue: float) -> ActivitySummary:
+    return ActivitySummary(
+        id=-int(rest_day.strftime("%Y%m%d")),
+        filename=f"repos-{rest_day.isoformat()}",
+        is_rest_day=True,
+        session_type="Repos",
+        started_at=datetime.combine(rest_day, time.min),
+        created_at=datetime.combine(rest_day, time.min),
+        fitness=fitness,
+        form=form,
+        fatigue=fatigue,
+        lap_count=0,
+        record_count=0,
+    )
+
+
 def _recalculate_threshold_metrics(activity: Activity) -> None:
     activity.intensity_factor = _intensity_factor(activity.normalized_power, activity.threshold_power)
     activity.training_stress_score = _training_stress_score(
@@ -63,8 +79,37 @@ def _recalculate_distance_metrics(activity: Activity) -> None:
         )
 
 
+def _activities_by_day(activities: list[Activity]) -> dict[date, list[Activity]]:
+    activities_by_day: dict[date, list[Activity]] = {}
+    for activity in activities:
+        if activity.started_at is None:
+            continue
+        activities_by_day.setdefault(activity.started_at.date(), []).append(activity)
+    return activities_by_day
+
+
 def _apply_daily_load(current: float, tss: float, time_constant_days: int) -> float:
     return current + (tss - current) / time_constant_days
+
+
+def _daily_training_states(activities_by_day: dict[date, list[Activity]], last_day: date) -> dict[date, tuple[float, float, float]]:
+    if not activities_by_day:
+        return {}
+    fitness = INITIAL_FITNESS
+    fatigue = INITIAL_FATIGUE
+    current_day = min(activities_by_day)
+    states: dict[date, tuple[float, float, float]] = {}
+
+    while current_day <= last_day:
+        day_activities = activities_by_day.get(current_day, [])
+        daily_tss = sum(float(activity.training_stress_score or 0) for activity in day_activities)
+        fitness = _apply_daily_load(fitness, daily_tss, FITNESS_DAYS)
+        fatigue = _apply_daily_load(fatigue, daily_tss, FATIGUE_DAYS)
+        form = fitness - fatigue
+        states[current_day] = (round(fitness, 1), round(form, 1), round(fatigue, 1))
+        current_day += timedelta(days=1)
+
+    return states
 
 
 def recalculate_training_history(db: Session) -> None:
@@ -76,30 +121,14 @@ def recalculate_training_history(db: Session) -> None:
     if not activities:
         return
 
-    activities_by_day: dict[date, list[Activity]] = {}
-    for activity in activities:
-        if activity.started_at is None:
-            continue
-        activities_by_day.setdefault(activity.started_at.date(), []).append(activity)
-
-    fitness = INITIAL_FITNESS
-    fatigue = INITIAL_FATIGUE
-    current_day = min(activities_by_day)
-    last_day = max(activities_by_day)
-
-    while current_day <= last_day:
-        day_activities = activities_by_day.get(current_day, [])
-        daily_tss = sum(float(activity.training_stress_score or 0) for activity in day_activities)
-        fitness = _apply_daily_load(fitness, daily_tss, FITNESS_DAYS)
-        fatigue = _apply_daily_load(fatigue, daily_tss, FATIGUE_DAYS)
-        form = fitness - fatigue
-
+    activities_by_day = _activities_by_day(list(activities))
+    states = _daily_training_states(activities_by_day, max(activities_by_day))
+    for current_day, day_activities in activities_by_day.items():
+        fitness, form, fatigue = states[current_day]
         for activity in day_activities:
-            activity.fitness = round(fitness, 1)
-            activity.fatigue = round(fatigue, 1)
-            activity.form = round(form, 1)
-
-        current_day += timedelta(days=1)
+            activity.fitness = fitness
+            activity.form = form
+            activity.fatigue = fatigue
 
 
 def _default_threshold_power(db: Session) -> int | None:
@@ -282,7 +311,19 @@ def list_activities(db: Session = Depends(get_db)) -> list[ActivitySummary]:
         .group_by(Activity.id)
         .order_by(Activity.started_at.desc().nullslast(), Activity.created_at.desc())
     )
-    return [_summary(activity, lap_count, record_count) for activity, lap_count, record_count in db.execute(stmt)]
+    rows = db.execute(stmt).all()
+    summaries = [_summary(activity, lap_count, record_count) for activity, lap_count, record_count in rows]
+    activities = [activity for activity, _, _ in rows if activity.started_at is not None]
+    activities_by_day = _activities_by_day(activities)
+    if not activities_by_day:
+        return summaries
+
+    states = _daily_training_states(activities_by_day, max(date.today(), max(activities_by_day)))
+    for current_day, (fitness, form, fatigue) in states.items():
+        if current_day not in activities_by_day:
+            summaries.append(_rest_summary(current_day, fitness, form, fatigue))
+
+    return summaries
 
 
 @router.get("/{activity_id}", response_model=ActivityDetail)

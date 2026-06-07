@@ -122,7 +122,10 @@ export function ActivityDashboard() {
     try {
       const data = await fetchActivities();
       setActivities(data);
-      const id = nextSelectedId ?? selectedId ?? data[0]?.id ?? null;
+      const selectableActivities = data.filter((activity) => !activity.is_rest_day);
+      const keptSelectedId =
+        selectedId && selectableActivities.some((activity) => activity.id === selectedId) ? selectedId : null;
+      const id = nextSelectedId ?? keptSelectedId ?? selectableActivities[0]?.id ?? null;
       setSelectedId(id);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Erreur inconnue");
@@ -165,7 +168,7 @@ export function ActivityDashboard() {
   }, []);
 
   useEffect(() => {
-    if (!selectedId) {
+    if (!selectedId || selectedId < 0) {
       setDetail(emptyDetail);
       setShowRecords(false);
       return;
@@ -502,6 +505,7 @@ function DashboardContent({
 }) {
   const [commentActivity, setCommentActivity] = useState<Activity | null>(null);
   const [commentDraft, setCommentDraft] = useState("");
+  const realActivityCount = activities.filter((activity) => !activity.is_rest_day).length;
 
   function openCommentModal(activity: Activity) {
     setCommentActivity(activity);
@@ -515,7 +519,7 @@ function DashboardContent({
   }
 
   function activityForWeekDay(date: string) {
-    return sortedActivities.find((activity) => activity.started_at?.slice(0, 10) === date) ?? null;
+    return sortedActivities.find((activity) => !activity.is_rest_day && activity.started_at?.slice(0, 10) === date) ?? null;
   }
 
   return (
@@ -675,7 +679,7 @@ function DashboardContent({
           <div className="panel-header">
             <div className="panel-title-inline">
               <h2>Activites</h2>
-              <span>{activities.length} seance{activities.length > 1 ? "s" : ""}</span>
+              <span>{realActivityCount} seance{realActivityCount > 1 ? "s" : ""}</span>
             </div>
             <div className="panel-actions">
               <button
@@ -729,7 +733,41 @@ function DashboardContent({
                     </tr>
                   </thead>
                   <tbody>
-                    {sortedActivities.map((activity) => (
+                    {sortedActivities.map((activity) => {
+                      if (activity.is_rest_day) {
+                        return (
+                          <tr key={activity.id} className="rest-row">
+                            <td>-</td>
+                            <td>{formatDate(activity.started_at)}</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td>
+                              <span className="rest-pill">Repos</span>
+                            </td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td>-</td>
+                            <td>{formatDecimal(activity.fitness, 1)}</td>
+                            <td>{formatDecimal(activity.form, 1)}</td>
+                            <td>{formatDecimal(activity.fatigue, 1)}</td>
+                          </tr>
+                        );
+                      }
+                      return (
                       <tr
                         key={activity.id}
                         className={activity.id === selectedId ? "selected" : ""}
@@ -819,7 +857,8 @@ function DashboardContent({
                         <td>{formatDecimal(activity.form, 1)}</td>
                         <td>{formatDecimal(activity.fatigue, 1)}</td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

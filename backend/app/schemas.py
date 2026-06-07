@@ -8,6 +8,7 @@ class ActivitySummary(BaseModel):
 
     id: int
     filename: str
+    is_rest_day: bool = False
     sport: str | None = None
     sub_sport: str | None = None
     session_type: str | None = None
@@ -145,4 +146,3 @@ class RecordRead(BaseModel):
     latitude: float | None = None
     longitude: float | None = None
     temperature: int | None = None
-
