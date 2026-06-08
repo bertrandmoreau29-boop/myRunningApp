@@ -42,6 +42,7 @@ def _ensure_sqlite_columns() -> None:
             "cycle": "VARCHAR(160)",
             "comment": "TEXT",
             "distance_manually_edited": "INTEGER",
+            "avg_heart_rate_manually_edited": "INTEGER",
             "avg_power": "INTEGER",
             "max_power": "INTEGER",
             "normalized_power": "INTEGER",

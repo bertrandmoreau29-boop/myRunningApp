@@ -485,6 +485,16 @@ td {
   width: 86px;
 }
 
+.heart-rate-input {
+  background: #ffffff;
+  border: 1px solid #cbd7ce;
+  border-radius: 6px;
+  color: #17201b;
+  height: 30px;
+  padding: 0 8px;
+  width: 72px;
+}
+
 .distance-display {
   background: transparent;
   border: 1px solid transparent;
@@ -536,6 +546,7 @@ td {
 }
 
 .distance-input,
+.heart-rate-input,
 .ftp-input,
 .cycle-select,
 .editable-select select,
@@ -553,6 +564,7 @@ td {
 }
 
 .distance-input:focus,
+.heart-rate-input:focus,
 .ftp-input:focus,
 .cycle-select:focus,
 .editable-select select:focus,

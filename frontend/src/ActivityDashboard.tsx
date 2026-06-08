@@ -119,6 +119,7 @@ export function ActivityDashboard() {
   const [weeklyMetric, setWeeklyMetric] = useState<WeeklyMetric>("tss");
   const [page, setPage] = useState<Page>("dashboard");
   const [editingDistanceId, setEditingDistanceId] = useState<number | null>(null);
+  const [editingHeartRateId, setEditingHeartRateId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function loadActivities(nextSelectedId?: number) {
@@ -412,6 +413,7 @@ export function ActivityDashboard() {
           }}
           appConfig={appConfig}
           editingDistanceId={editingDistanceId}
+          editingHeartRateId={editingHeartRateId}
           isLoading={isLoading}
           loadActivities={() => void loadActivities()}
           maxWeeklyTss={maxWeeklyTss}
@@ -419,6 +421,7 @@ export function ActivityDashboard() {
           selectedId={selectedId}
           setSelectedId={setSelectedId}
           setEditingDistanceId={setEditingDistanceId}
+          setEditingHeartRateId={setEditingHeartRateId}
           setShowRecords={setShowRecords}
           setSortDirection={setSortDirection}
           setWeeklyMetric={setWeeklyMetric}
@@ -472,10 +475,12 @@ function DashboardContent({
   setSortDirection,
   appConfig,
   editingDistanceId,
+  editingHeartRateId,
   handleActivityUpdate,
   onAddOption,
   onUpdateConfig,
   setEditingDistanceId,
+  setEditingHeartRateId,
 }: {
   trainingMetrics: TrainingMetrics | null;
   weeklyTss: WeeklyTss | null;
@@ -501,6 +506,7 @@ function DashboardContent({
   setSortDirection: (updater: (current: "asc" | "desc") => "asc" | "desc") => void;
   appConfig: AppConfig | null;
   editingDistanceId: number | null;
+  editingHeartRateId: number | null;
   handleActivityUpdate: (activity: Activity, payload: Parameters<typeof updateActivity>[1]) => Promise<void>;
   onAddOption: (category: "session_type" | "route_location" | "shoe_type" | "cycle") => Promise<void>;
   onUpdateConfig: (
@@ -509,6 +515,7 @@ function DashboardContent({
     >,
   ) => Promise<void>;
   setEditingDistanceId: (id: number | null) => void;
+  setEditingHeartRateId: (id: number | null) => void;
 }) {
   const [commentActivity, setCommentActivity] = useState<Activity | null>(null);
   const [commentDraft, setCommentDraft] = useState("");
@@ -862,7 +869,17 @@ function DashboardContent({
                         <td>{formatPace(activity.grade_adjusted_speed)}</td>
                         <td>{formatDecimal(activity.power_grade_adjusted_speed_ratio, 1)}</td>
                         <td>{formatDecimal(activity.efficiency_grade_adjusted_speed_ratio, 2)}</td>
-                        <td>{formatNumber(activity.avg_heart_rate, " bpm")}</td>
+                        <td>
+                          <HeartRateCell
+                            activity={activity}
+                            isEditing={editingHeartRateId === activity.id}
+                            onEdit={() => setEditingHeartRateId(activity.id)}
+                            onSave={(heartRate) => {
+                              setEditingHeartRateId(null);
+                              void handleActivityUpdate(activity, { avg_heart_rate: heartRate });
+                            }}
+                          />
+                        </td>
                         <td>{formatNumber(activity.avg_power, " W")}</td>
                         <td>{formatNumber(activity.normalized_power, " W")}</td>
                         <td>
@@ -1317,6 +1334,47 @@ function DistanceCell({
     <button className="distance-display" type="button" onDoubleClick={onEdit} onClick={(event) => event.stopPropagation()}>
       <span>{formatDistance(activity.total_distance)}</span>
       {activity.distance_manually_edited ? <sup>*</sup> : null}
+    </button>
+  );
+}
+
+function HeartRateCell({
+  activity,
+  isEditing,
+  onEdit,
+  onSave,
+}: {
+  activity: Activity;
+  isEditing: boolean;
+  onEdit: () => void;
+  onSave: (heartRate: number) => void;
+}) {
+  if (isEditing) {
+    return (
+      <input
+        autoFocus
+        className="heart-rate-input"
+        type="number"
+        min="1"
+        max="250"
+        step="1"
+        defaultValue={activity.avg_heart_rate ?? ""}
+        onClick={(event) => event.stopPropagation()}
+        onBlur={(event) => {
+          const heartRate = Number.parseInt(event.currentTarget.value, 10);
+          if (Number.isFinite(heartRate) && heartRate >= 1 && heartRate <= 250) onSave(heartRate);
+        }}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") event.currentTarget.blur();
+        }}
+      />
+    );
+  }
+
+  return (
+    <button className="distance-display" type="button" onDoubleClick={onEdit} onClick={(event) => event.stopPropagation()}>
+      <span>{formatNumber(activity.avg_heart_rate, " bpm")}</span>
+      {activity.avg_heart_rate_manually_edited ? <sup>*</sup> : null}
     </button>
   );
 }

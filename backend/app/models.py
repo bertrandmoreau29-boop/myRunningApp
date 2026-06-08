@@ -19,6 +19,7 @@ class Activity(Base):
     cycle: Mapped[str | None] = mapped_column(String(160))
     comment: Mapped[str | None] = mapped_column(Text)
     distance_manually_edited: Mapped[int | None] = mapped_column(Integer)
+    avg_heart_rate_manually_edited: Mapped[int | None] = mapped_column(Integer)
     started_at: Mapped[datetime | None] = mapped_column(DateTime)
     total_elapsed_time: Mapped[float | None] = mapped_column(Float)
     total_timer_time: Mapped[float | None] = mapped_column(Float)

@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.fit_parser import (
     _efficiency_grade_adjusted_speed_ratio,
+    _efficiency_factor,
     _intensity_factor,
     _power_grade_adjusted_speed_ratio,
     _training_stress_score,
@@ -77,6 +78,14 @@ def _recalculate_distance_metrics(activity: Activity) -> None:
             activity.efficiency_factor,
             activity.grade_adjusted_speed,
         )
+
+
+def _recalculate_heart_rate_metrics(activity: Activity) -> None:
+    activity.efficiency_factor = _efficiency_factor(activity.normalized_power, activity.avg_heart_rate)
+    activity.efficiency_grade_adjusted_speed_ratio = _efficiency_grade_adjusted_speed_ratio(
+        activity.efficiency_factor,
+        activity.grade_adjusted_speed,
+    )
 
 
 def _activities_by_day(activities: list[Activity]) -> dict[date, list[Activity]]:
@@ -381,6 +390,11 @@ def update_activity(activity_id: int, payload: ActivityUpdate, db: Session = Dep
         activity.total_distance = payload.total_distance
         activity.distance_manually_edited = 1
         _recalculate_distance_metrics(activity)
+
+    if payload.avg_heart_rate is not None:
+        activity.avg_heart_rate = payload.avg_heart_rate
+        activity.avg_heart_rate_manually_edited = 1
+        _recalculate_heart_rate_metrics(activity)
 
     if payload.threshold_power is not None:
         activity.threshold_power = payload.threshold_power

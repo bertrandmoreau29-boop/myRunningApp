@@ -17,6 +17,7 @@ class ActivitySummary(BaseModel):
     cycle: str | None = None
     comment: str | None = None
     distance_manually_edited: int | None = None
+    avg_heart_rate_manually_edited: int | None = None
     started_at: datetime | None = None
     total_elapsed_time: float | None = None
     total_timer_time: float | None = None
@@ -64,6 +65,7 @@ class ActivityUpdate(BaseModel):
     cycle: str | None = None
     comment: str | None = None
     total_distance: float | None = Field(default=None, ge=0)
+    avg_heart_rate: int | None = Field(default=None, ge=1, le=250)
     threshold_power: int | None = Field(default=None, ge=1, le=2000)
 
 

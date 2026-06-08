@@ -12,6 +12,7 @@ export type Activity = {
   cycle: string | null;
   comment: string | null;
   distance_manually_edited: number | null;
+  avg_heart_rate_manually_edited: number | null;
   started_at: string | null;
   total_elapsed_time: number | null;
   total_timer_time: number | null;
@@ -218,6 +219,7 @@ export type ActivityUpdate = Partial<{
   cycle: string | null;
   comment: string | null;
   total_distance: number;
+  avg_heart_rate: number;
   threshold_power: number;
 }>;
 
